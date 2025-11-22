@@ -15,8 +15,12 @@ const handleSignup = async () => {
   }
   try {
     await authStore.signup({ email: email.value, password: password.value });
-  } catch (e) {
-    error.value = "Registration failed. User might already exist.";
+  } catch (e: any) {
+    if (e.response && e.response.data && e.response.data.detail) {
+      error.value = e.response.data.detail;
+    } else {
+      error.value = "Registration failed. Please try again.";
+    }
   }
 };
 </script>
