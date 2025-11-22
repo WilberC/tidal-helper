@@ -374,7 +374,7 @@ The application has **two independent but parallel sections**:
 
 ### Infrastructure
 
-- **Database:** SQLite (development), PostgreSQL (production-ready)
+- **Database:** SQLite (development and Production)
 - **Containerization:** Docker + Docker Compose
 - **Environment Management:** .env files
 
