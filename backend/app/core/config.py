@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
+    # CORS
+    BACKEND_CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ]
+
     # Tidal
     TIDAL_API_TOKEN: Optional[str] = os.getenv("TIDAL_API_TOKEN")
     TIDAL_CLIENT_ID: Optional[str] = os.getenv("TIDAL_CLIENT_ID")
