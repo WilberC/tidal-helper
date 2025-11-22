@@ -1,5 +1,9 @@
 ## 💾 Software Project Specification
 
+This document outlines the technical details of the Tidal Helper project, including its architecture, features, and implementation details.
+- This is a living document that will be updated as the project progresses and new features are added.
+- It is not a final document so it is subject to change and can be changed at any time if needed.
+
 ---
 
 ### 1. Project Overview
