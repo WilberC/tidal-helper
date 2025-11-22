@@ -1,6 +1,7 @@
 ## 💾 Software Project Specification
 
 This document outlines the technical details of the Tidal Helper project, including its architecture, features, and implementation details.
+
 - This is a living document that will be updated as the project progresses and new features are added.
 - It is not a final document so it is subject to change and can be changed at any time if needed.
 
@@ -539,3 +540,32 @@ TIDAL_CLIENT_ID=
 RATE_LIMITER_MAX_REQUESTS_PER_SECOND=5
 
 ```
+
+## 10. UX/UI Design Guidelines
+
+**Goal:** Create a premium, immersive, and "sleek" user experience that mirrors the high-fidelity nature of Tidal.
+
+### 10.1 Visual Identity
+
+- **Theme:** Dark Mode Default. The app should feel like a nighttime environment.
+- **Primary Color:** Tidal Cyan (`#00FFFF`) - Used for primary actions, active states, and highlights.
+- **Backgrounds:**
+  - **Base:** Deep Black (`#000000`) or Very Dark Gray (`#111111`).
+  - **Cards/Surfaces:** Dark Gray with slight transparency (Glassmorphism) (`rgba(255, 255, 255, 0.05)`).
+- **Typography:**
+  - **Font Family:** 'Plus Jakarta Sans' or 'Inter'. Clean, geometric, and highly legible.
+  - **Weights:** Light (300) for body, Bold (700) for headings.
+- **Borders:** Subtle, thin borders (`1px solid rgba(255, 255, 255, 0.1)`) to define shapes without clutter.
+
+### 10.2 Design Elements
+
+- **Glassmorphism:** Use backdrop blur (`backdrop-filter: blur(10px)`) on overlays, modals, and sticky headers to create depth.
+- **Gradients:** Subtle radial gradients in the background (e.g., deep blue to black) to add richness and prevent a "flat" look.
+- **Micro-interactions:** Smooth transitions (0.2s - 0.3s ease-out) on hover states and page loads.
+- **Input Fields:** Minimalist inputs with bottom borders or dark filled backgrounds, glowing cyan on focus.
+
+### 10.3 Layout Principles
+
+- **Whitespace:** Generous padding and margins to create a sense of luxury and focus.
+- **Grid:** Responsive grid system that adapts gracefully from mobile to desktop.
+- **Consistency:** Reusable components for buttons, inputs, and cards to maintain visual coherence.

@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body {
+  @apply bg-tidal-black text-white font-sans antialiased;
+  background-image: radial-gradient(
+    circle at top center,
+    #1a1a2e 0%,
+    #000000 100%
+  );
+  min-height: 100vh;
+}
