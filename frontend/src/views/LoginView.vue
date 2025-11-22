@@ -1,11 +1,22 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useAuthStore } from "@/stores/auth";
+import { useToast } from "vue-toastification";
 
 const authStore = useAuthStore();
+const toast = useToast();
 const email = ref("");
 const password = ref("");
 const error = ref("");
+
+// Check for signup success message
+onMounted(() => {
+  const signupSuccess = sessionStorage.getItem("signupSuccess");
+  if (signupSuccess) {
+    toast.success(signupSuccess);
+    sessionStorage.removeItem("signupSuccess");
+  }
+});
 
 const handleLogin = async () => {
   try {

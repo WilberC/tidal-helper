@@ -11,3 +11,48 @@ body {
   );
   min-height: 100vh;
 }
+
+/* Toast Notification Custom Styles */
+.Vue-Toastification__toast {
+  @apply bg-white/10 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl;
+}
+
+.Vue-Toastification__toast--success {
+  @apply bg-tidal-cyan/10 border-tidal-cyan/30;
+}
+
+.Vue-Toastification__toast--error {
+  @apply bg-red-500/10 border-red-500/30;
+}
+
+.Vue-Toastification__toast--warning {
+  @apply bg-yellow-500/10 border-yellow-500/30;
+}
+
+.Vue-Toastification__toast--info {
+  @apply bg-blue-500/10 border-blue-500/30;
+}
+
+.Vue-Toastification__toast-body {
+  @apply text-white font-medium;
+}
+
+.Vue-Toastification__progress-bar {
+  @apply bg-tidal-cyan;
+}
+
+.Vue-Toastification__toast--success .Vue-Toastification__progress-bar {
+  @apply bg-tidal-cyan;
+}
+
+.Vue-Toastification__toast--error .Vue-Toastification__progress-bar {
+  @apply bg-red-500;
+}
+
+.Vue-Toastification__toast--warning .Vue-Toastification__progress-bar {
+  @apply bg-yellow-500;
+}
+
+.Vue-Toastification__toast--info .Vue-Toastification__progress-bar {
+  @apply bg-blue-500;
+}

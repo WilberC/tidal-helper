@@ -15,7 +15,8 @@
     "lucide-vue-next": "^0.331.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.19",
-    "vue-router": "^4.2.5"
+    "vue-router": "^4.2.5",
+    "vue-toastification": "^2.0.0-rc.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.19",

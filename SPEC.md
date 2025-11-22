@@ -569,3 +569,257 @@ RATE_LIMITER_MAX_REQUESTS_PER_SECOND=5
 - **Whitespace:** Generous padding and margins to create a sense of luxury and focus.
 - **Grid:** Responsive grid system that adapts gracefully from mobile to desktop.
 - **Consistency:** Reusable components for buttons, inputs, and cards to maintain visual coherence.
+
+---
+
+## 11. UX Best Practices & User Feedback
+
+**Goal:** Provide clear, timely feedback to users for all actions and system states to create a trustworthy and intuitive experience.
+
+### 11.1 Feedback Mechanisms
+
+#### Toast Notifications
+
+Use toast notifications for **temporary, non-blocking feedback** that doesn't require user action:
+
+- **Success Messages:**
+
+  - User registration completed → "Account created successfully! Please log in."
+  - Playlist created → "Playlist created successfully"
+  - Song added to playlist → "Song added to [Playlist Name]"
+  - Data synchronized → "Sync completed successfully"
+
+- **Error Messages:**
+
+  - API failure → "Unable to connect to Tidal. Please try again."
+  - Invalid form submission → "Please check your input and try again"
+  - Duplicate entry → "This song is already in the playlist"
+
+- **Warning Messages:**
+
+  - Token expiring soon → "Your session will expire in 5 minutes"
+  - Unsaved changes → "You have unsaved changes"
+
+- **Info Messages:**
+  - Background process started → "Syncing playlists in background..."
+  - Feature unavailable → "This feature is coming soon"
+
+**Implementation Guidelines:**
+
+- Position: Top-right corner
+- Duration: 3-5 seconds (longer for errors)
+- Auto-dismiss for success/info, manual dismiss option for errors/warnings
+- Maximum 3 toasts visible at once
+- Use appropriate colors: Cyan for success, Red for errors, Yellow for warnings, Blue for info
+
+#### Inline Error Messages
+
+Use inline validation for **form fields** to provide immediate feedback:
+
+- Display below the input field
+- Show only after user interaction (blur or submit)
+- Use red text with a subtle red border on the input
+- Examples:
+  - "Email is required"
+  - "Password must be at least 8 characters"
+  - "Passwords do not match"
+
+#### Alert Banners
+
+Use persistent banners for **critical system-wide states**:
+
+- Offline mode: "No Internet Connection - Working Offline"
+- Maintenance mode: "System maintenance scheduled for [time]"
+- Account issues: "Please verify your email address"
+
+### 11.2 Loading States
+
+**Goal:** Never leave users wondering if the system is working.
+
+#### Skeleton Screens
+
+Use skeleton loaders for **content that's loading**:
+
+- Playlist grid/list view while fetching data
+- Song list while loading playlist contents
+- User profile information
+- Animated shimmer effect to indicate loading
+
+**Implementation:**
+
+```html
+<!-- Example skeleton for playlist card -->
+<div class="bg-white/5 rounded-xl p-4 animate-pulse">
+  <div class="h-40 bg-white/10 rounded-lg mb-3"></div>
+  <div class="h-4 bg-white/10 rounded w-3/4 mb-2"></div>
+  <div class="h-3 bg-white/10 rounded w-1/2"></div>
+</div>
+```
+
+#### Loading Spinners
+
+Use spinners for **short operations** (< 3 seconds):
+
+- Button loading states (e.g., "Signing in...")
+- Quick API calls
+- Form submissions
+
+**Implementation:**
+
+- Replace button text with spinner + "Loading..." text
+- Disable button during loading
+- Use cyan-colored spinner to match brand
+
+#### Progress Indicators
+
+Use progress bars for **long operations** with known duration:
+
+- File uploads
+- Batch synchronization
+- Multi-step processes
+
+### 11.3 Empty States
+
+**Goal:** Guide users when there's no content to display.
+
+#### First-Time User Experience
+
+- **No Playlists:**
+
+  ```
+  🎵 No playlists yet
+  Create your first playlist to start organizing your music!
+  [Create Playlist Button]
+  ```
+
+- **Empty Playlist:**
+
+  ```
+  This playlist is empty
+  Add songs to get started
+  [Add Song Button]
+  ```
+
+- **No Search Results:**
+  ```
+  No songs found for "[search term]"
+  Try a different search term or check your spelling
+  ```
+
+#### Design Guidelines for Empty States
+
+- Use friendly, encouraging language
+- Include an icon or illustration
+- Provide a clear call-to-action button
+- Explain what the user can do next
+
+### 11.4 Confirmation Dialogs
+
+**Goal:** Prevent accidental destructive actions.
+
+Use confirmation dialogs for **irreversible or important actions**:
+
+- Delete playlist: "Are you sure you want to delete '[Playlist Name]'? This action cannot be undone."
+- Remove all songs: "Remove all songs from this playlist?"
+- Logout: "Are you sure you want to log out?"
+
+**Implementation Guidelines:**
+
+- Use modal overlays with glassmorphism
+- Primary action button (destructive) in red
+- Secondary action button (cancel) in gray
+- Clear, concise messaging
+- Keyboard support (Enter to confirm, Esc to cancel)
+
+### 11.5 Form Validation
+
+**Goal:** Help users submit correct data on the first try.
+
+#### Real-time Validation
+
+- Email format validation
+- Password strength indicator
+- Character count for text fields with limits
+
+#### Validation States
+
+- **Default:** Neutral border color
+- **Focus:** Cyan glow
+- **Valid:** Subtle green indicator (optional)
+- **Invalid:** Red border + error message below
+
+#### Validation Timing
+
+- Validate on blur (when user leaves the field)
+- Show success indicators only after successful submission
+- Don't validate empty required fields until form submission
+
+### 11.6 Accessibility Considerations
+
+**Goal:** Ensure the application is usable by everyone.
+
+- **Keyboard Navigation:**
+
+  - All interactive elements accessible via Tab
+  - Enter to submit forms
+  - Esc to close modals
+  - Arrow keys for lists/menus
+
+- **Screen Reader Support:**
+
+  - Proper ARIA labels on all interactive elements
+  - Announce toast notifications
+  - Descriptive alt text for images
+  - Semantic HTML structure
+
+- **Visual Accessibility:**
+
+  - Sufficient color contrast (WCAG AA minimum)
+  - Don't rely solely on color to convey information
+  - Provide text alternatives for icons
+  - Support browser zoom up to 200%
+
+- **Focus Indicators:**
+  - Clear visible focus states on all interactive elements
+  - Use cyan ring for consistency with brand
+
+### 11.7 Micro-interactions
+
+**Goal:** Add polish and delight to the user experience.
+
+- **Hover Effects:**
+
+  - Subtle scale transform (1.02x) on cards
+  - Color transitions on buttons
+  - Glow effects on primary actions
+
+- **Click Feedback:**
+
+  - Slight scale down (0.98x) on button press
+  - Ripple effect on card interactions
+
+- **Transitions:**
+  - Smooth page transitions (fade in/out)
+  - Slide animations for modals
+  - Stagger animations for list items
+
+### 11.8 Error Recovery
+
+**Goal:** Help users recover from errors gracefully.
+
+- **Retry Mechanisms:**
+
+  - "Retry" button for failed API calls
+  - Automatic retry with exponential backoff for network errors
+  - Clear indication of retry attempts
+
+- **Fallback Content:**
+
+  - Show cached data when offline
+  - Placeholder images for failed image loads
+  - Graceful degradation for missing features
+
+- **Error Context:**
+  - Explain what went wrong in simple terms
+  - Suggest specific actions to resolve the issue
+  - Provide support contact for persistent issues
