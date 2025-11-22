@@ -61,3 +61,81 @@ cd frontend
 npm install
 npm run dev
 ```
+
+## Database Management
+
+### Database Migrations with Alembic
+
+The project uses [Alembic](https://alembic.sqlalchemy.org/) for database schema migrations.
+
+#### Initialize Alembic (First Time Only)
+
+If the `alembic` directory doesn't exist, initialize it:
+
+```bash
+cd backend
+poetry run alembic init alembic
+```
+
+#### Create a New Migration
+
+After modifying your SQLModel models, generate a new migration:
+
+```bash
+cd backend
+poetry run alembic revision --autogenerate -m "Description of changes"
+```
+
+This will create a new migration file in `backend/alembic/versions/`.
+
+#### Apply Migrations
+
+To apply all pending migrations to the database:
+
+```bash
+cd backend
+poetry run alembic upgrade head
+```
+
+#### Rollback Migrations
+
+To rollback the last migration:
+
+```bash
+cd backend
+poetry run alembic downgrade -1
+```
+
+To rollback to a specific revision:
+
+```bash
+cd backend
+poetry run alembic downgrade <revision_id>
+```
+
+#### Check Current Migration Status
+
+To see the current migration version:
+
+```bash
+cd backend
+poetry run alembic current
+```
+
+To see migration history:
+
+```bash
+cd backend
+poetry run alembic history
+```
+
+### Initialize Database (Alternative Method)
+
+For quick database initialization without migrations, you can use the `init_db.py` script:
+
+```bash
+cd backend
+poetry run python init_db.py
+```
+
+> **Note:** This creates all tables based on your SQLModel definitions but doesn't track migration history. For production use, prefer Alembic migrations.
