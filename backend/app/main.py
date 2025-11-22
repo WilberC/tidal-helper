@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import api_router
 from app.core.config import settings
+from app.core.db import validate_and_init_db
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -9,6 +10,13 @@ app = FastAPI(
     description="API for managing Tidal playlists and songs",
     version="0.1.0",
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on application startup."""
+    validate_and_init_db()
+
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
