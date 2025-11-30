@@ -1,9 +1,15 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlmodel import Session
 from app.api.deps import get_session, get_current_user
 from app.models.user import User
-from app.schemas import PlaylistCreate, PlaylistRead, PlaylistUpdate
+from app.schemas import (
+    PlaylistCreate,
+    PlaylistRead,
+    PlaylistUpdate,
+    SongCreate,
+    PlaylistReadWithSongs,
+)
 from app.services.playlist_service import PlaylistService
 
 router = APIRouter()
@@ -34,7 +40,7 @@ def read_playlists(
     return service.get_playlists(user_id=current_user.id, skip=skip, limit=limit)
 
 
-@router.get("/{playlist_id}", response_model=PlaylistRead)
+@router.get("/{playlist_id}", response_model=PlaylistReadWithSongs)
 def read_playlist(
     playlist_id: int,
     session: Session = Depends(get_session),
@@ -91,3 +97,60 @@ def delete_playlist(
         )
 
     return service.delete_playlist(playlist_id)
+
+
+@router.post("/{playlist_id}/songs", response_model=bool)
+def add_song_to_playlist(
+    playlist_id: int,
+    song_in: SongCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    service = PlaylistService(session)
+    playlist = service.get_playlist(playlist_id)
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if playlist.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to update this playlist"
+        )
+
+    return service.add_song(playlist_id, song_in.dict())
+
+
+@router.delete("/{playlist_id}/songs/{song_id}", response_model=bool)
+def remove_song_from_playlist(
+    playlist_id: int,
+    song_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    service = PlaylistService(session)
+    playlist = service.get_playlist(playlist_id)
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if playlist.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to update this playlist"
+        )
+
+    return service.remove_song(playlist_id, song_id)
+
+
+@router.put("/{playlist_id}/songs/reorder", response_model=bool)
+def reorder_playlist_songs(
+    playlist_id: int,
+    song_ids: List[int] = Body(...),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    service = PlaylistService(session)
+    playlist = service.get_playlist(playlist_id)
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if playlist.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to update this playlist"
+        )
+
+    return service.reorder_songs(playlist_id, song_ids)

@@ -2,9 +2,11 @@
 import { useAuthStore } from "@/stores/auth";
 import { usePlaylistStore } from "@/stores/playlists";
 import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
 const authStore = useAuthStore();
 const playlistStore = usePlaylistStore();
+const router = useRouter();
 
 onMounted(() => {
   playlistStore.fetchPlaylists();
@@ -66,6 +68,10 @@ const confirmDelete = async () => {
     showDeleteConfirm.value = false;
     deleteId.value = null;
   }
+};
+
+const openPlaylist = (id: number) => {
+  router.push({ name: "playlist-detail", params: { id } });
 };
 </script>
 
@@ -190,7 +196,8 @@ const confirmDelete = async () => {
       <div
         v-for="playlist in playlistStore.playlists"
         :key="playlist.id"
-        class="bg-gray-800/50 border border-white/10 rounded-xl p-6 hover:bg-gray-800 transition group relative shadow-lg hover:shadow-cyan-500/10"
+        @click="openPlaylist(playlist.id)"
+        class="bg-gray-800/50 border border-white/10 rounded-xl p-6 hover:bg-gray-800 transition group relative shadow-lg hover:shadow-cyan-500/10 cursor-pointer"
       >
         <div class="flex justify-between items-start mb-2">
           <h3
@@ -222,7 +229,7 @@ const confirmDelete = async () => {
         >
           <span>{{ new Date(playlist.created_at).toLocaleDateString() }}</span>
           <button
-            @click="openDeleteConfirm(playlist.id)"
+            @click.stop="openDeleteConfirm(playlist.id)"
             class="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition"
           >
             Delete

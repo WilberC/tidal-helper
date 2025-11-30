@@ -3,6 +3,15 @@ import axios from "axios";
 import { ref } from "vue";
 import { useAuthStore } from "./auth";
 
+interface Song {
+  id?: number;
+  tidal_id: number;
+  title: string;
+  artist: string;
+  album: string;
+  cover_url?: string;
+}
+
 interface Playlist {
   id: number;
   user_id: number;
@@ -10,10 +19,12 @@ interface Playlist {
   description?: string;
   created_at: string;
   updated_at: string;
+  songs?: Song[];
 }
 
 export const usePlaylistStore = defineStore("playlists", () => {
   const playlists = ref<Playlist[]>([]);
+  const currentPlaylist = ref<Playlist | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const authStore = useAuthStore();
@@ -37,6 +48,26 @@ export const usePlaylistStore = defineStore("playlists", () => {
       playlists.value = response.data;
     } catch (err: any) {
       error.value = err.response?.data?.detail || "Failed to fetch playlists";
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const fetchPlaylist = async (id: number) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/v1/playlists/${id}`,
+        {
+          headers: getHeaders(),
+        }
+      );
+      currentPlaylist.value = response.data;
+      return response.data;
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || "Failed to fetch playlist";
+      throw err;
     } finally {
       loading.value = false;
     }
@@ -72,6 +103,9 @@ export const usePlaylistStore = defineStore("playlists", () => {
         }
       );
       playlists.value = playlists.value.filter((p) => p.id !== id);
+      if (currentPlaylist.value?.id === id) {
+        currentPlaylist.value = null;
+      }
     } catch (err: any) {
       error.value = err.response?.data?.detail || "Failed to delete playlist";
     } finally {
@@ -96,6 +130,9 @@ export const usePlaylistStore = defineStore("playlists", () => {
       if (index !== -1) {
         playlists.value[index] = response.data;
       }
+      if (currentPlaylist.value?.id === id) {
+        currentPlaylist.value = { ...currentPlaylist.value, ...response.data };
+      }
       return response.data;
     } catch (err: any) {
       error.value = err.response?.data?.detail || "Failed to update playlist";
@@ -105,13 +142,88 @@ export const usePlaylistStore = defineStore("playlists", () => {
     }
   };
 
+  const addSong = async (playlistId: number, song: Song) => {
+    // Optimistic update? No, let's wait for server.
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/v1/playlists/${playlistId}/songs`,
+        song,
+        { headers: getHeaders() }
+      );
+      // Refresh playlist to get updated list (including new song with internal ID)
+      await fetchPlaylist(playlistId);
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || "Failed to add song";
+      throw err;
+    }
+  };
+
+  const removeSong = async (playlistId: number, songId: number) => {
+    try {
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL}/api/v1/playlists/${playlistId}/songs/${songId}`,
+        { headers: getHeaders() }
+      );
+      if (currentPlaylist.value && currentPlaylist.value.songs) {
+        currentPlaylist.value.songs = currentPlaylist.value.songs.filter(
+          (s) => s.id !== songId
+        );
+      }
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || "Failed to remove song";
+      throw err;
+    }
+  };
+
+  const reorderSongs = async (playlistId: number, songIds: number[]) => {
+    try {
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/v1/playlists/${playlistId}/songs/reorder`,
+        songIds, // Send array directly as body
+        { headers: getHeaders() }
+      );
+      // No need to fetch if we just reordered locally, but to be safe we could.
+      // For now, assume local state is already updated by UI (drag and drop) or we just fetch.
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || "Failed to reorder songs";
+      throw err;
+    }
+  };
+
+  const refreshSong = async (songId: number) => {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/v1/songs/${songId}/refresh`,
+        {},
+        { headers: getHeaders() }
+      );
+      // We should probably update the song in the current playlist if it's there
+      if (currentPlaylist.value && currentPlaylist.value.songs) {
+        // We could fetch the song again or just fetch the playlist
+        // Fetching playlist is easier to ensure consistency
+        if (currentPlaylist.value.id) {
+          await fetchPlaylist(currentPlaylist.value.id);
+        }
+      }
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || "Failed to refresh song";
+      throw err;
+    }
+  };
+
   return {
     playlists,
+    currentPlaylist,
     loading,
     error,
     fetchPlaylists,
+    fetchPlaylist,
     createPlaylist,
     updatePlaylist,
     deletePlaylist,
+    addSong,
+    removeSong,
+    reorderSongs,
+    refreshSong,
   };
 });

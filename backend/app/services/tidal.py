@@ -80,5 +80,64 @@ class TidalService:
             return True
         return False
 
+    def search_tracks(self, query: str, limit: int = 10):
+        if not self.session.check_login():
+            return []
+
+        # tidalapi search returns a dictionary with keys based on models requested
+        # We assume 'tracks' is the key for Track model results
+        try:
+            results = self.session.search(
+                query, models=[tidalapi.media.Track], limit=limit
+            )
+            tracks = results["tracks"]
+
+            song_results = []
+            for track in tracks:
+                # Handle cover URL safely
+                cover_url = None
+                if hasattr(track.album, "cover") and track.album.cover:
+                    # tidalapi might return a method or property for cover
+                    # usually it's a string or we need to construct it
+                    # For now, let's assume it's a property that gives the ID or URL
+                    # If it's an ID, we might need a helper to get the URL.
+                    # Let's just store what we get for now.
+                    cover_url = str(track.album.cover)
+
+                song_results.append(
+                    {
+                        "tidal_id": track.id,
+                        "title": track.name,
+                        "artist": track.artist.name,
+                        "album": track.album.name,
+                        "cover_url": cover_url,
+                    }
+                )
+            return song_results
+        except Exception as e:
+            print(f"Error searching tracks: {e}")
+            return []
+
+    def get_track(self, tidal_id: int):
+        if not self.session.check_login():
+            return None
+        try:
+            track = self.session.track(tidal_id)
+            # Map to Song dict
+            cover_url = None
+            if hasattr(track.album, "cover") and track.album.cover:
+                cover_url = str(track.album.cover)
+
+            return {
+                "tidal_id": track.id,
+                "title": track.name,
+                "artist": track.artist.name,
+                "album": track.album.name,
+                "cover_url": cover_url,
+            }
+        except Exception as e:
+            print(f"Error fetching track: {e}")
+            return None
+
 
 tidal_service = TidalService()

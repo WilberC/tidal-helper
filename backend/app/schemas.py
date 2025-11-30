@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from sqlmodel import SQLModel
 
@@ -22,3 +22,23 @@ class PlaylistRead(PlaylistBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
+
+
+class SongBase(SQLModel):
+    tidal_id: int
+    title: str
+    artist: str
+    album: str
+    cover_url: Optional[str] = None
+
+
+class SongCreate(SongBase):
+    pass
+
+
+class SongRead(SongBase):
+    id: int
+
+
+class PlaylistReadWithSongs(PlaylistRead):
+    songs: List[SongRead] = []
