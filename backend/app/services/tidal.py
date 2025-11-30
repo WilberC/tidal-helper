@@ -36,7 +36,10 @@ class TidalService:
     def start_oauth_login(self):
         login, future = self.session.login_oauth()
         self.pending_future = future
-        return login.verification_uri_complete
+        url = login.verification_uri_complete
+        if url and not url.startswith("http"):
+            url = "https://" + url
+        return url
 
     def check_login_status(self, user_id: int, session: Session):
         # If we are already logged in, return True
