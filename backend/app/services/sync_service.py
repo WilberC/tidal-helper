@@ -65,6 +65,7 @@ class SyncService:
 
         self.session.commit()  # Commit deletion
 
+        added_song_ids = set()
         for index, t_song in enumerate(tidal_songs):
             # Check if song exists in Song table
             stmt = select(Song).where(Song.tidal_id == t_song["tidal_id"])
@@ -89,9 +90,11 @@ class SyncService:
                 self.session.add(local_song)
 
             # Create link
-            link = PlaylistSongLink(
-                playlist_id=local_playlist_id, song_id=local_song.id, order=index
-            )
-            self.session.add(link)
+            if local_song.id not in added_song_ids:
+                link = PlaylistSongLink(
+                    playlist_id=local_playlist_id, song_id=local_song.id, order=index
+                )
+                self.session.add(link)
+                added_song_ids.add(local_song.id)
 
         self.session.commit()
