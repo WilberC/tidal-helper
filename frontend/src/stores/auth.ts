@@ -58,5 +58,64 @@ export const useAuthStore = defineStore("auth", () => {
     router.push("/login");
   }
 
-  return { user, token, isAuthenticated, login, signup, logout };
+  const isTidalConnected = ref(false);
+
+  async function checkTidalConnectionStatus() {
+    if (!token.value) return;
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/v1/auth/tidal/status`,
+        {
+          headers: { Authorization: `Bearer ${token.value}` },
+        }
+      );
+      isTidalConnected.value = response.data.is_connected;
+    } catch (error) {
+      console.error("Failed to check Tidal connection status", error);
+    }
+  }
+
+  async function getTidalLoginUrl() {
+    const response = await axios.get(
+      `${import.meta.env.VITE_API_URL}/api/v1/auth/tidal/login-url`,
+      {
+        headers: { Authorization: `Bearer ${token.value}` },
+      }
+    );
+    return response.data; // Returns { url, code_verifier }
+  }
+
+  async function handleTidalCallback(code: string, codeVerifier: string) {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/v1/auth/tidal/callback`,
+        {
+          code,
+          redirect_uri: window.location.origin + "/auth/callback",
+          code_verifier: codeVerifier,
+        },
+        {
+          headers: { Authorization: `Bearer ${token.value}` },
+        }
+      );
+      isTidalConnected.value = true;
+      return true;
+    } catch (error) {
+      console.error("Tidal auth failed", error);
+      throw error;
+    }
+  }
+
+  return {
+    user,
+    token,
+    isAuthenticated,
+    isTidalConnected,
+    login,
+    signup,
+    logout,
+    checkTidalConnectionStatus,
+    getTidalLoginUrl,
+    handleTidalCallback,
+  };
 });

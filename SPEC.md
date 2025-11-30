@@ -85,6 +85,7 @@ This section outlines the incremental development milestones for the Tidal Helpe
 - **v0.5.7** → Frontend: Sync progress indicator (loading state)
 - **v0.5.8** → Frontend: Sync completion toast notification
 - **v0.5.9** → Frontend: Display unavailable songs with visual distinction
+- **v0.5.10** → Frontend: Connect Tidal Account UI (Link/Unlink account)
 
 #### Phase 0.6.x - Error Handling & Edge Cases
 

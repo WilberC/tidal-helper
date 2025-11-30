@@ -10,6 +10,7 @@ const router = useRouter();
 
 onMounted(() => {
   playlistStore.fetchPlaylists();
+  authStore.checkTidalConnectionStatus();
 });
 
 // Form State
@@ -39,6 +40,16 @@ const handleSync = async () => {
     // Error is handled in store
   } finally {
     isSyncing.value = false;
+  }
+};
+
+const handleConnectTidal = async () => {
+  try {
+    const { url, code_verifier } = await authStore.getTidalLoginUrl();
+    sessionStorage.setItem("tidal_code_verifier", code_verifier);
+    window.location.href = url;
+  } catch (e) {
+    console.error("Failed to connect to Tidal", e);
   }
 };
 
@@ -100,6 +111,7 @@ const openPlaylist = (id: number) => {
       <h1 class="text-3xl font-bold text-cyan-400">My Playlists</h1>
       <div class="flex gap-4">
         <button
+          v-if="authStore.isTidalConnected"
           @click="handleSync"
           :disabled="isSyncing"
           class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -126,6 +138,13 @@ const openPlaylist = (id: number) => {
             ></path>
           </svg>
           <span v-else>Sync Data</span>
+        </button>
+        <button
+          v-else
+          @click="handleConnectTidal"
+          class="bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2"
+        >
+          Connect Tidal
         </button>
         <button
           @click="openCreate"

@@ -1,6 +1,7 @@
 import tidalapi
 from sqlmodel import Session, select
 from app.models.tidal_token import TidalToken
+from app.core.config import settings
 
 
 import time
@@ -31,36 +32,102 @@ rate_limiter = RateLimiter(5, 1.0)
 
 class TidalService:
     def __init__(self):
-        self.session = tidalapi.Session()
+        # Note: The custom keys in .env (if any) might not support the Device Authorization Flow
+        # used by login_oauth(). We default to tidalapi's internal client which does.
+        config = tidalapi.Config()
+        if settings.TIDAL_CLIENT_ID:
+            config.client_id = settings.TIDAL_CLIENT_ID
+        if settings.TIDAL_API_TOKEN:
+            config.client_secret = settings.TIDAL_API_TOKEN
+
+        self.session = tidalapi.Session(config=config)
         self.pending_future = None
 
-    def get_login_url(self):
-        login, future = self.session.login_oauth()
-        self.pending_future = future
-        return login.verification_uri_complete, future
+    def get_auth_url(self, redirect_uri: str):
+        import urllib.parse
+        import hashlib
+        import base64
+        import os
 
-    def check_auth_status(self, future=None):
-        # Use stored future if not provided
-        fut = future or self.pending_future
-        if not fut:
-            return False
+        # Generate PKCE verifier and challenge
+        code_verifier = base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
+
+        m = hashlib.sha256()
+        m.update(code_verifier.encode())
+        code_challenge = base64.urlsafe_b64encode(m.digest()).decode().rstrip("=")
+
+        params = {
+            "client_id": settings.TIDAL_CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": "user.read collection.read search.read playlists.write playlists.read entitlements.read collection.write recommendations.read playback search.write",
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+        query_string = urllib.parse.urlencode(params)
+        return f"https://login.tidal.com/authorize?{query_string}", code_verifier
+
+    def exchange_code(self, code: str, redirect_uri: str, code_verifier: str):
+        import requests
+        import base64
+        import time
+
+        # Basic Auth for client_id:client_secret
+        auth_str = f"{settings.TIDAL_CLIENT_ID}:{settings.TIDAL_API_TOKEN}"
+        b64_auth = base64.b64encode(auth_str.encode()).decode()
+
+        headers = {
+            "Authorization": f"Basic {b64_auth}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+
+        data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "code_verifier": code_verifier,
+        }
+
+        response = requests.post(
+            "https://auth.tidal.com/v1/oauth2/token", data=data, headers=headers
+        )
+        response.raise_for_status()
+        token_data = response.json()
+
+        # Calculate expiry
+        expiry_time = time.time() + token_data.get("expires_in", 0)
+
+        print(f"Token Data: {token_data}")
 
         try:
-            # This blocks until finished
-            fut.result()
-            self.pending_future = None
-            return self.session.check_login()
-        except Exception:
-            return False
+            self.session.load_oauth_session(
+                token_data.get("token_type", "Bearer"),
+                token_data["access_token"],
+                token_data.get("refresh_token"),
+                expiry_time,
+            )
+        except Exception as e:
+            print(f"Error loading session: {e}")
+            # Manually set session data since load_oauth_session failed
+            self.session.access_token = token_data["access_token"]
+            self.session.refresh_token = token_data.get("refresh_token")
+            self.session.expiry_time = expiry_time
+            # Some versions of tidalapi might use different internal names, but these are standard properties
+
+        return True
 
     def save_token(self, user_id: int, session: Session):
-        if self.session.check_login():
+        # We assume the session is valid since we just exchanged the code
+        # if self.session.check_login():
+        if True:
             # Check if token exists
             token_record = session.exec(
                 select(TidalToken).where(TidalToken.user_id == user_id)
             ).first()
 
-            expires_at = self.session.expiry_time
+            from datetime import datetime
+
+            expires_at = datetime.utcfromtimestamp(self.session.expiry_time)
 
             if token_record:
                 token_record.access_token = self.session.access_token

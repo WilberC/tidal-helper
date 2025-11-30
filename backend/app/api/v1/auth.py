@@ -1,6 +1,7 @@
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from sqlmodel import Session, select
 from app.core import security
 from app.core.db import get_session
@@ -56,6 +57,7 @@ def login_access_token(
 
 @router.get("/tidal/login-url")
 def get_tidal_login_url(
+    redirect_uri: str = "http://localhost:5173/auth/callback",
     session: Session = Depends(get_session),
     current_user: User = Depends(deps.get_current_user),
 ):
@@ -64,43 +66,52 @@ def get_tidal_login_url(
     """
     from app.services.tidal import tidal_service
 
-    # Note: This is a simplified implementation using in-memory storage for the future.
-    # In a production environment with multiple workers, this would need external storage (e.g., Redis).
-    url, future = tidal_service.get_login_url()
-
-    # Store the future/session context temporarily
-    # For this MVP/Phase 0.2.x, we'll assume the service handles the session state for the single user flow
-    # or we need a way to map this request to the future.
-    # Since tidal_service.session is a singleton in our current implementation,
-    # we can just call check_auth_status later.
-
-    return {"url": url}
+    url, code_verifier = tidal_service.get_auth_url(redirect_uri)
+    return {"url": url, "code_verifier": code_verifier}
 
 
-@router.post("/tidal/check-auth")
-def check_tidal_auth(
+class TidalCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str = "http://localhost:5173/auth/callback"
+    code_verifier: str
+
+
+@router.post("/tidal/callback")
+def tidal_callback(
+    request: TidalCallbackRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(deps.get_current_user),
 ):
     """
-    Check if the user has completed the Tidal authentication.
+    Exchange the authorization code for tokens.
     """
     from app.services.tidal import tidal_service
 
-    # This will block until the user logs in or it times out
-    # In a real app, we should probably have the frontend poll this or use a background task
-    # But for now, we'll assume the user has clicked the link and we are waiting for the result.
-    # To avoid blocking indefinitely, tidalapi usually has a timeout.
+    try:
+        success = tidal_service.exchange_code(
+            request.code, request.redirect_uri, request.code_verifier
+        )
+        if success:
+            tidal_service.save_token(current_user.id, session)
+            return {"status": "authenticated"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
 
-    # We need to access the future we got earlier.
-    # Since we didn't store it in the service class in the previous step, we need to update the service.
-    # Let's assume we updated the service to store the pending future.
+    raise HTTPException(status_code=400, detail="Authentication failed")
 
-    success = tidal_service.check_auth_status(
-        None
-    )  # We need to pass the future or have the service manage it
-    if success:
-        tidal_service.save_token(current_user.id, session)
-        return {"status": "authenticated"}
 
-    raise HTTPException(status_code=400, detail="Authentication failed or timed out")
+@router.get("/tidal/status")
+def get_tidal_auth_status(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """
+    Check if the user has a valid Tidal token stored.
+    """
+    from app.models.tidal_token import TidalToken
+
+    token = session.exec(
+        select(TidalToken).where(TidalToken.user_id == current_user.id)
+    ).first()
+
+    return {"is_connected": token is not None}
