@@ -31,76 +31,44 @@ rate_limiter = RateLimiter(5, 1.0)
 class TidalService:
     def __init__(self):
         self.session = tidalapi.Session()
-        self.pending_future = None
 
     def start_oauth_login(self):
-        login, future = self.session.login_oauth()
-        self.pending_future = future
+        login, _ = self.session.login_oauth()
         url = login.verification_uri_complete
         if url and not url.startswith("http"):
             url = "https://" + url
         return url
 
     def check_login_status(self, user_id: int, session: Session):
-        # If we are already logged in, return True
         if self.session.check_login():
+            self.save_token(user_id, session)
             return True
-
-        # If we have a pending future, check if it's done
-        if self.pending_future:
-            if self.pending_future.done():
-                try:
-                    self.pending_future.result()
-                    # If result() didn't raise, we should be logged in
-                    if self.session.check_login():
-                        self.save_token(user_id, session)
-                        self.pending_future = None
-                        return True
-                except Exception as e:
-                    print(f"Login failed: {e}")
-                    self.pending_future = None
-                    return False
-            else:
-                # Still waiting
-                return False
-
-        return False
+        # If we are not logged in tries to login with the stored token
+        self.load_session(user_id, session)
+        return self.session.check_login()
 
     def save_token(self, user_id: int, session: Session):
         if self.session.check_login():
-            # Check if token exists
             token_record = session.exec(
                 select(TidalToken).where(TidalToken.user_id == user_id)
             ).first()
 
-            from datetime import datetime
-
-            # Ensure expiry_time is handled correctly
-            # session.expiry_time might be a datetime or timestamp depending on tidalapi version
-            # The user request says: expiry_time = session.expiry_time
-            # But our model expects a datetime.
-            # Let's check what session.expiry_time is.
-            # In tidalapi, it seems to be a datetime object usually, but let's be safe.
-
-            expiry_val = self.session.expiry_time
-            if isinstance(expiry_val, (int, float)):
-                expires_at = datetime.utcfromtimestamp(expiry_val)
-            else:
-                expires_at = expiry_val
+            if token_record and (token_record.token_type == self.session.token_type):
+                return
 
             if token_record:
+                token_record.token_type = self.session.token_type
                 token_record.access_token = self.session.access_token
                 token_record.refresh_token = self.session.refresh_token
-                token_record.token_type = self.session.token_type
-                token_record.expires_at = expires_at
+                token_record.expiry_time = self.session.expiry_time
                 session.add(token_record)
             else:
                 new_token = TidalToken(
                     user_id=user_id,
+                    token_type=self.session.token_type,
                     access_token=self.session.access_token,
                     refresh_token=self.session.refresh_token,
-                    token_type=self.session.token_type,
-                    expires_at=expires_at,
+                    expiry_time=self.session.expiry_time,
                 )
                 session.add(new_token)
             session.commit()
@@ -113,32 +81,13 @@ class TidalService:
         ).first()
 
         if token_record:
-            # Load session from DB
-            # tidalapi's load_oauth_session takes (token_type, access_token, refresh_token, expiry_time)
-            # We assume token_type is 'Bearer'
-            # Convert datetime to timestamp
-            from datetime import timezone
-
-            expiry_time = token_record.expires_at
-            if expiry_time.tzinfo is None:
-                expiry_time = expiry_time.replace(tzinfo=timezone.utc)
-
-            self.session.load_oauth_session(
-                "Bearer",
+            restored_session = self.session.load_oauth_session(
+                token_record.token_type,
                 token_record.access_token,
                 token_record.refresh_token,
-                expiry_time.timestamp(),
+                token_record.expiry_time,
             )
-
-            # Check if valid/refresh if needed
-            if not self.session.check_login():
-                # Attempt refresh? tidalapi might do it automatically on request if configured,
-                # or we might need to call something.
-                # Usually check_login() just checks if access token is valid.
-                # If expired, we might need to refresh manually if the library doesn't auto-handle it on load.
-                # But let's assume for now we just load it.
-                pass
-            return True
+            return restored_session
         return False
 
     def search_tracks(self, query: str, limit: int = 10):
