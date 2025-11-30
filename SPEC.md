@@ -532,11 +532,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # Database
 DATABASE_URL="sqlite:///./tidal_helper.db" # or Postgres URL
 
-# Tidal Configuration (Optional/If custom Client)
-# Only required if not using default tidalapi keys
-TIDAL_API_TOKEN=
-TIDAL_CLIENT_ID=
-
 # Rate Limiting
 RATE_LIMITER_MAX_REQUESTS_PER_SECOND=5
 

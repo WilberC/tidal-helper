@@ -14,7 +14,7 @@ alembic = "^1.13.1"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 bcrypt = "3.2.2"
-tidalapi = "^0.7.3"
+tidalapi = "0.8.8"
 python-multipart = "^0.0.9"
 pydantic-settings = "^2.0.0"
 

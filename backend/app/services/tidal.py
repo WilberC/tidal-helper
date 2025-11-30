@@ -1,8 +1,6 @@
 import tidalapi
 from sqlmodel import Session, select
 from app.models.tidal_token import TidalToken
-from app.core.config import settings
-
 
 import time
 from threading import Lock
@@ -32,94 +30,41 @@ rate_limiter = RateLimiter(5, 1.0)
 
 class TidalService:
     def __init__(self):
-        # Note: The custom keys in .env (if any) might not support the Device Authorization Flow
-        # used by login_oauth(). We default to tidalapi's internal client which does.
-        config = tidalapi.Config()
-        if settings.TIDAL_CLIENT_ID:
-            config.client_id = settings.TIDAL_CLIENT_ID
-        if settings.TIDAL_API_TOKEN:
-            config.client_secret = settings.TIDAL_API_TOKEN
-
-        self.session = tidalapi.Session(config=config)
+        self.session = tidalapi.Session()
         self.pending_future = None
 
-    def get_auth_url(self, redirect_uri: str):
-        import urllib.parse
-        import hashlib
-        import base64
-        import os
+    def start_oauth_login(self):
+        login, future = self.session.login_oauth()
+        self.pending_future = future
+        return login.verification_uri_complete
 
-        # Generate PKCE verifier and challenge
-        code_verifier = base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
+    def check_login_status(self, user_id: int, session: Session):
+        # If we are already logged in, return True
+        if self.session.check_login():
+            return True
 
-        m = hashlib.sha256()
-        m.update(code_verifier.encode())
-        code_challenge = base64.urlsafe_b64encode(m.digest()).decode().rstrip("=")
+        # If we have a pending future, check if it's done
+        if self.pending_future:
+            if self.pending_future.done():
+                try:
+                    self.pending_future.result()
+                    # If result() didn't raise, we should be logged in
+                    if self.session.check_login():
+                        self.save_token(user_id, session)
+                        self.pending_future = None
+                        return True
+                except Exception as e:
+                    print(f"Login failed: {e}")
+                    self.pending_future = None
+                    return False
+            else:
+                # Still waiting
+                return False
 
-        params = {
-            "client_id": settings.TIDAL_CLIENT_ID,
-            "redirect_uri": redirect_uri,
-            "response_type": "code",
-            "scope": "user.read collection.read search.read playlists.write playlists.read entitlements.read collection.write recommendations.read playback search.write",
-            "code_challenge": code_challenge,
-            "code_challenge_method": "S256",
-        }
-        query_string = urllib.parse.urlencode(params)
-        return f"https://login.tidal.com/authorize?{query_string}", code_verifier
-
-    def exchange_code(self, code: str, redirect_uri: str, code_verifier: str):
-        import requests
-        import base64
-        import time
-
-        # Basic Auth for client_id:client_secret
-        auth_str = f"{settings.TIDAL_CLIENT_ID}:{settings.TIDAL_API_TOKEN}"
-        b64_auth = base64.b64encode(auth_str.encode()).decode()
-
-        headers = {
-            "Authorization": f"Basic {b64_auth}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        }
-
-        data = {
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "code_verifier": code_verifier,
-        }
-
-        response = requests.post(
-            "https://auth.tidal.com/v1/oauth2/token", data=data, headers=headers
-        )
-        response.raise_for_status()
-        token_data = response.json()
-
-        # Calculate expiry
-        expiry_time = time.time() + token_data.get("expires_in", 0)
-
-        print(f"Token Data: {token_data}")
-
-        try:
-            self.session.load_oauth_session(
-                token_data.get("token_type", "Bearer"),
-                token_data["access_token"],
-                token_data.get("refresh_token"),
-                expiry_time,
-            )
-        except Exception as e:
-            print(f"Error loading session: {e}")
-            # Manually set session data since load_oauth_session failed
-            self.session.access_token = token_data["access_token"]
-            self.session.refresh_token = token_data.get("refresh_token")
-            self.session.expiry_time = expiry_time
-            # Some versions of tidalapi might use different internal names, but these are standard properties
-
-        return True
+        return False
 
     def save_token(self, user_id: int, session: Session):
-        # We assume the session is valid since we just exchanged the code
-        # if self.session.check_login():
-        if True:
+        if self.session.check_login():
             # Check if token exists
             token_record = session.exec(
                 select(TidalToken).where(TidalToken.user_id == user_id)
@@ -127,11 +72,23 @@ class TidalService:
 
             from datetime import datetime
 
-            expires_at = datetime.utcfromtimestamp(self.session.expiry_time)
+            # Ensure expiry_time is handled correctly
+            # session.expiry_time might be a datetime or timestamp depending on tidalapi version
+            # The user request says: expiry_time = session.expiry_time
+            # But our model expects a datetime.
+            # Let's check what session.expiry_time is.
+            # In tidalapi, it seems to be a datetime object usually, but let's be safe.
+
+            expiry_val = self.session.expiry_time
+            if isinstance(expiry_val, (int, float)):
+                expires_at = datetime.utcfromtimestamp(expiry_val)
+            else:
+                expires_at = expiry_val
 
             if token_record:
                 token_record.access_token = self.session.access_token
                 token_record.refresh_token = self.session.refresh_token
+                token_record.token_type = self.session.token_type
                 token_record.expires_at = expires_at
                 session.add(token_record)
             else:
@@ -139,6 +96,7 @@ class TidalService:
                     user_id=user_id,
                     access_token=self.session.access_token,
                     refresh_token=self.session.refresh_token,
+                    token_type=self.session.token_type,
                     expires_at=expires_at,
                 )
                 session.add(new_token)
@@ -155,11 +113,18 @@ class TidalService:
             # Load session from DB
             # tidalapi's load_oauth_session takes (token_type, access_token, refresh_token, expiry_time)
             # We assume token_type is 'Bearer'
+            # Convert datetime to timestamp
+            from datetime import timezone
+
+            expiry_time = token_record.expires_at
+            if expiry_time.tzinfo is None:
+                expiry_time = expiry_time.replace(tzinfo=timezone.utc)
+
             self.session.load_oauth_session(
                 "Bearer",
                 token_record.access_token,
                 token_record.refresh_token,
-                token_record.expires_at,
+                expiry_time.timestamp(),
             )
 
             # Check if valid/refresh if needed

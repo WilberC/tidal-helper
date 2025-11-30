@@ -21,10 +21,6 @@ class Settings(BaseSettings):
         "http://localhost:3000",
     ]
 
-    # Tidal
-    TIDAL_API_TOKEN: Optional[str] = os.getenv("TIDAL_API_TOKEN")
-    TIDAL_CLIENT_ID: Optional[str] = os.getenv("TIDAL_CLIENT_ID")
-
     class Config:
         case_sensitive = True
         env_file = ".env"

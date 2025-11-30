@@ -1,7 +1,6 @@
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
 from sqlmodel import Session, select
 from app.core import security
 from app.core.db import get_session
@@ -57,7 +56,6 @@ def login_access_token(
 
 @router.get("/tidal/login-url")
 def get_tidal_login_url(
-    redirect_uri: str = "http://localhost:5173/auth/callback",
     session: Session = Depends(get_session),
     current_user: User = Depends(deps.get_current_user),
 ):
@@ -66,38 +64,9 @@ def get_tidal_login_url(
     """
     from app.services.tidal import tidal_service
 
-    url, code_verifier = tidal_service.get_auth_url(redirect_uri)
-    return {"url": url, "code_verifier": code_verifier}
-
-
-class TidalCallbackRequest(BaseModel):
-    code: str
-    redirect_uri: str = "http://localhost:5173/auth/callback"
-    code_verifier: str
-
-
-@router.post("/tidal/callback")
-def tidal_callback(
-    request: TidalCallbackRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(deps.get_current_user),
-):
-    """
-    Exchange the authorization code for tokens.
-    """
-    from app.services.tidal import tidal_service
-
-    try:
-        success = tidal_service.exchange_code(
-            request.code, request.redirect_uri, request.code_verifier
-        )
-        if success:
-            tidal_service.save_token(current_user.id, session)
-            return {"status": "authenticated"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
-
-    raise HTTPException(status_code=400, detail="Authentication failed")
+    url = tidal_service.start_oauth_login()
+    # The device flow URL is usually short and doesn't need a redirect URI or verifier in the same way
+    return {"url": url}
 
 
 @router.get("/tidal/status")
@@ -108,10 +77,9 @@ def get_tidal_auth_status(
     """
     Check if the user has a valid Tidal token stored.
     """
-    from app.models.tidal_token import TidalToken
+    from app.services.tidal import tidal_service
 
-    token = session.exec(
-        select(TidalToken).where(TidalToken.user_id == current_user.id)
-    ).first()
+    # Check if login just completed or if we already have a token
+    is_connected = tidal_service.check_login_status(current_user.id, session)
 
-    return {"is_connected": token is not None}
+    return {"is_connected": is_connected}

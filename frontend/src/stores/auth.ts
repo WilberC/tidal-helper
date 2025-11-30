@@ -82,28 +82,7 @@ export const useAuthStore = defineStore("auth", () => {
         headers: { Authorization: `Bearer ${token.value}` },
       }
     );
-    return response.data; // Returns { url, code_verifier }
-  }
-
-  async function handleTidalCallback(code: string, codeVerifier: string) {
-    try {
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/v1/auth/tidal/callback`,
-        {
-          code,
-          redirect_uri: window.location.origin + "/auth/callback",
-          code_verifier: codeVerifier,
-        },
-        {
-          headers: { Authorization: `Bearer ${token.value}` },
-        }
-      );
-      isTidalConnected.value = true;
-      return true;
-    } catch (error) {
-      console.error("Tidal auth failed", error);
-      throw error;
-    }
+    return response.data.url;
   }
 
   return {
@@ -116,6 +95,5 @@ export const useAuthStore = defineStore("auth", () => {
     logout,
     checkTidalConnectionStatus,
     getTidalLoginUrl,
-    handleTidalCallback,
   };
 });
