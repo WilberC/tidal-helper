@@ -794,9 +794,23 @@ Use confirmation dialogs for **irreversible or important actions**:
   - Glow effects on primary actions
 
 - **Click Feedback:**
-
   - Slight scale down (0.98x) on button press
   - Ripple effect on card interactions
+
+### 11.8 Form & Dialog UX
+
+**Goal:** Ensure interactions are fluid and native-feeling.
+
+- **Submit on Enter:**
+
+  - All forms (login, create playlist, search) must support submitting by pressing the `Enter` key.
+  - Users should not be forced to click a "Save" or "Submit" button with their mouse.
+
+- **Custom Confirmation Dialogs:**
+
+  - **NEVER** use the browser's native `alert()` or `confirm()` dialogs. They disrupt the immersive experience.
+  - Use custom-styled modal dialogs that match the application's glassmorphism theme.
+  - Destructive actions (like delete) should have a distinct visual style (e.g., red buttons) in the confirmation dialog.
 
 - **Transitions:**
   - Smooth page transitions (fade in/out)
