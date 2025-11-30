@@ -167,6 +167,10 @@ const getCoverUrl = (uuid: string | undefined) => {
               v-for="(song, index) in playlistStore.currentPlaylist.songs"
               :key="song.id"
               class="hover:bg-gray-700/50 transition group"
+              :class="{ 'opacity-50 grayscale': song.is_available === false }"
+              :title="
+                song.is_available === false ? 'Not available on Tidal' : ''
+              "
             >
               <td class="p-4 text-gray-500">{{ index + 1 }}</td>
               <td class="p-4 font-medium text-white flex items-center gap-3">
@@ -181,7 +185,14 @@ const getCoverUrl = (uuid: string | undefined) => {
                 >
                   No Img
                 </div>
-                {{ song.title }}
+                <div>
+                  {{ song.title }}
+                  <span
+                    v-if="song.is_available === false"
+                    class="ml-2 text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/50"
+                    >Unavailable</span
+                  >
+                </div>
               </td>
               <td class="p-4 text-gray-400">{{ song.artist }}</td>
               <td class="p-4 text-gray-400">{{ song.album }}</td>

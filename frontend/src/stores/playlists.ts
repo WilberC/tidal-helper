@@ -10,6 +10,7 @@ interface Song {
   artist: string;
   album: string;
   cover_url?: string;
+  is_available?: boolean;
 }
 
 interface Playlist {
@@ -211,6 +212,26 @@ export const usePlaylistStore = defineStore("playlists", () => {
     }
   };
 
+  const syncData = async () => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/v1/sync/`,
+        {},
+        { headers: getHeaders() }
+      );
+      // Refresh playlists after sync
+      await fetchPlaylists();
+      return response.data;
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || "Failed to sync data";
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   return {
     playlists,
     currentPlaylist,
@@ -225,5 +246,6 @@ export const usePlaylistStore = defineStore("playlists", () => {
     removeSong,
     reorderSongs,
     refreshSong,
+    syncData,
   };
 });

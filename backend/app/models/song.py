@@ -13,6 +13,7 @@ class Song(SQLModel, table=True):
     artist: str
     album: str
     cover_url: Optional[str] = None
+    is_available: bool = Field(default=True)
 
     playlists: List["Playlist"] = Relationship(
         back_populates="songs", link_model=PlaylistSongLink

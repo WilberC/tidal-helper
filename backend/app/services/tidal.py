@@ -3,6 +3,32 @@ from sqlmodel import Session, select
 from app.models.tidal_token import TidalToken
 
 
+import time
+from threading import Lock
+
+
+class RateLimiter:
+    def __init__(self, max_calls, period):
+        self.max_calls = max_calls
+        self.period = period
+        self.calls = []
+        self.lock = Lock()
+
+    def wait(self):
+        with self.lock:
+            now = time.time()
+            self.calls = [t for t in self.calls if now - t < self.period]
+            if len(self.calls) >= self.max_calls:
+                sleep_time = self.period - (now - self.calls[0])
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                self.calls = [t for t in self.calls if time.time() - t < self.period]
+            self.calls.append(time.time())
+
+
+rate_limiter = RateLimiter(5, 1.0)
+
+
 class TidalService:
     def __init__(self):
         self.session = tidalapi.Session()
@@ -84,6 +110,7 @@ class TidalService:
         if not self.session.check_login():
             return []
 
+        rate_limiter.wait()
         # tidalapi search returns a dictionary with keys based on models requested
         # We assume 'tracks' is the key for Track model results
         try:
@@ -121,6 +148,8 @@ class TidalService:
     def get_track(self, tidal_id: int):
         if not self.session.check_login():
             return None
+
+        rate_limiter.wait()
         try:
             track = self.session.track(tidal_id)
             # Map to Song dict
@@ -138,6 +167,61 @@ class TidalService:
         except Exception as e:
             print(f"Error fetching track: {e}")
             return None
+
+    def get_user_playlists(self):
+        if not self.session.check_login():
+            return []
+
+        rate_limiter.wait()
+        try:
+            user = self.session.user
+            playlists = user.playlists()
+
+            playlist_results = []
+            for pl in playlists:
+                playlist_results.append(
+                    {
+                        "tidal_id": pl.id,
+                        "name": pl.name,
+                        "description": pl.description,
+                        # "image": pl.image, # tidalapi might not expose image directly or differently
+                    }
+                )
+            return playlist_results
+        except Exception as e:
+            print(f"Error fetching playlists: {e}")
+            return []
+
+    def get_playlist_tracks(self, playlist_id: str):
+        if not self.session.check_login():
+            return []
+
+        rate_limiter.wait()
+        try:
+            playlist = self.session.playlist(playlist_id)
+            tracks = playlist.tracks()
+
+            song_results = []
+            for track in tracks:
+                # Handle cover URL safely
+                cover_url = None
+                if hasattr(track.album, "cover") and track.album.cover:
+                    cover_url = str(track.album.cover)
+
+                song_results.append(
+                    {
+                        "tidal_id": track.id,
+                        "title": track.name,
+                        "artist": track.artist.name,
+                        "album": track.album.name,
+                        "cover_url": cover_url,
+                        "duration": track.duration,
+                    }
+                )
+            return song_results
+        except Exception as e:
+            print(f"Error fetching playlist tracks: {e}")
+            return []
 
 
 tidal_service = TidalService()

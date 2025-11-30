@@ -23,6 +23,25 @@ const formDesc = ref("");
 const showDeleteConfirm = ref(false);
 const deleteId = ref<number | null>(null);
 
+// Sync State
+const isSyncing = ref(false);
+const syncMessage = ref("");
+
+const handleSync = async () => {
+  isSyncing.value = true;
+  try {
+    const result = await playlistStore.syncData();
+    syncMessage.value = result.message;
+    setTimeout(() => {
+      syncMessage.value = "";
+    }, 3000);
+  } catch (e) {
+    // Error is handled in store
+  } finally {
+    isSyncing.value = false;
+  }
+};
+
 const openCreate = () => {
   isEditing.value = false;
   editingId.value = null;
@@ -81,6 +100,34 @@ const openPlaylist = (id: number) => {
       <h1 class="text-3xl font-bold text-cyan-400">My Playlists</h1>
       <div class="flex gap-4">
         <button
+          @click="handleSync"
+          :disabled="isSyncing"
+          class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg
+            v-if="isSyncing"
+            class="animate-spin h-5 w-5 text-white"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            ></circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+          <span v-else>Sync Data</span>
+        </button>
+        <button
           @click="openCreate"
           class="bg-cyan-500 hover:bg-cyan-600 text-black font-bold py-2 px-4 rounded transition"
         >
@@ -93,6 +140,14 @@ const openPlaylist = (id: number) => {
           Logout
         </button>
       </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div
+      v-if="syncMessage"
+      class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded shadow-lg z-50 transition-all duration-300"
+    >
+      {{ syncMessage }}
     </div>
 
     <!-- Create/Edit Form -->
