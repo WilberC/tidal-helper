@@ -85,6 +85,23 @@ export const useAuthStore = defineStore("auth", () => {
     return response.data.url;
   }
 
+  async function handleTidalCallback(code: string, codeVerifier: string) {
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/v1/auth/tidal/callback`,
+        { code, code_verifier: codeVerifier },
+        {
+          headers: { Authorization: `Bearer ${token.value}` },
+        }
+      );
+      isTidalConnected.value = true;
+      return response.data;
+    } catch (error) {
+      console.error("Failed to handle Tidal callback", error);
+      throw error;
+    }
+  }
+
   return {
     user,
     token,
@@ -95,5 +112,6 @@ export const useAuthStore = defineStore("auth", () => {
     logout,
     checkTidalConnectionStatus,
     getTidalLoginUrl,
+    handleTidalCallback,
   };
 });
