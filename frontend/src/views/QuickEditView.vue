@@ -53,11 +53,15 @@
         </div>
 
         <!-- Body (Songs List) -->
-        <div class="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+        <TransitionGroup
+          name="list"
+          tag="div"
+          class="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar relative"
+        >
           <div
             v-for="song in playlist.songs"
             :key="`${playlist.id}-${song.id}`"
-            class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 cursor-grab active:cursor-grabbing group transition-colors"
+            class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 cursor-grab active:cursor-grabbing group transition-colors w-full"
             draggable="true"
             @dragstart="onDragStart($event, song, playlist.id)"
           >
@@ -74,24 +78,32 @@
             </div>
             <button
               v-if="song.id"
-              @click.stop="handleRemoveSong(playlist.id, song.id)"
+              @click.stop="handleRemoveSong(playlist.id, song)"
               class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all"
               title="Remove from playlist"
             >
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
+        </TransitionGroup>
 
-          <div
-            v-if="!playlist.songs?.length"
-            class="h-full flex flex-col items-center justify-center text-gray-500 text-sm p-4 text-center"
-          >
-            <p>No songs</p>
-            <p class="text-xs mt-1">Drag songs here</p>
-          </div>
+        <div
+          v-if="!playlist.songs?.length"
+          class="h-full flex flex-col items-center justify-center text-gray-500 text-sm p-4 text-center"
+        >
+          <p>No songs</p>
+          <p class="text-xs mt-1">Drag songs here</p>
         </div>
       </div>
     </div>
+
+    <ConfirmationModal
+      :is-open="deleteModalOpen"
+      title="Remove Song"
+      :message="`Are you sure you want to remove '${songToDelete?.title}' from this playlist?`"
+      @confirm="confirmDelete"
+      @cancel="deleteModalOpen = false"
+    />
   </div>
 </template>
 
@@ -101,10 +113,15 @@ import { usePlaylistStore } from "@/stores/playlists";
 import { storeToRefs } from "pinia";
 import { useToast } from "vue-toastification";
 import { Trash2 } from "lucide-vue-next";
+import ConfirmationModal from "@/components/ConfirmationModal.vue";
 
 const playlistStore = usePlaylistStore();
 const { playlists, loading, error } = storeToRefs(playlistStore);
 const toast = useToast();
+
+const deleteModalOpen = ref(false);
+const songToDelete = ref<any>(null);
+const playlistToDeleteFrom = ref<number | null>(null);
 
 onMounted(async () => {
   await playlistStore.fetchPlaylistsDetailed();
@@ -144,14 +161,27 @@ const onDrop = async (event: DragEvent, targetPlaylistId: number) => {
   }
 };
 
-const handleRemoveSong = async (playlistId: number, songId: number) => {
-  if (!confirm("Remove this song from the playlist?")) return;
-  try {
-    await playlistStore.removeSong(playlistId, songId);
-    toast.success("Song removed from playlist");
-  } catch (e) {
-    // Error handled in store
+const handleRemoveSong = (playlistId: number, song: any) => {
+  songToDelete.value = song;
+  playlistToDeleteFrom.value = playlistId;
+  deleteModalOpen.value = true;
+};
+
+const confirmDelete = async () => {
+  if (playlistToDeleteFrom.value && songToDelete.value) {
+    try {
+      await playlistStore.removeSong(
+        playlistToDeleteFrom.value,
+        songToDelete.value.id
+      );
+      toast.success("Song removed from playlist");
+    } catch (e) {
+      // Error handled in store
+    }
   }
+  deleteModalOpen.value = false;
+  songToDelete.value = null;
+  playlistToDeleteFrom.value = null;
 };
 
 const formatDate = (dateString?: string) => {
@@ -180,5 +210,25 @@ const getCoverUrl = (uuid: string | undefined) => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* List Transitions */
+.list-move,
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.list-leave-active {
+  position: absolute;
+  /* Ensure the element takes up the correct width when absolute */
+  left: 0.5rem; /* p-2 */
+  right: 0.5rem; /* p-2 */
 }
 </style>
