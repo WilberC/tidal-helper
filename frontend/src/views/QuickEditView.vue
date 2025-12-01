@@ -53,7 +53,12 @@
             </button>
           </div>
           <div class="flex justify-between items-end text-xs text-gray-400">
-            <p>{{ playlist.songs?.length || 0 }} songs</p>
+            <p>
+              {{ playlist.songs?.length || 0 }} songs
+              <span v-if="playlist.tidal_id" class="ml-1 opacity-60"
+                >({{ playlist.tidal_id }})</span
+              >
+            </p>
             <p>Last push: {{ formatDate(playlist.last_synced_at) }}</p>
           </div>
         </div>
@@ -181,6 +186,8 @@ const formatDate = (dateString?: string) => {
 
 const getCoverUrl = (uuid: string | undefined) => {
   if (!uuid) return "";
+  uuid = uuid.replace("https://resources.tidal.com/images/", "");
+  uuid = uuid.replace("/320x320.jpg", "");
   return `https://resources.tidal.com/images/${uuid.replace(/-/g, "/")}/80x80.jpg`;
 };
 </script>

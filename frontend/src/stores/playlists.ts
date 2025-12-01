@@ -16,6 +16,7 @@ interface Song {
 interface Playlist {
   id: number;
   user_id: number;
+  tidal_id?: string;
   name: string;
   description?: string;
   created_at: string;

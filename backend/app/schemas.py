@@ -20,6 +20,7 @@ class PlaylistUpdate(SQLModel):
 class PlaylistRead(PlaylistBase):
     id: int
     user_id: int
+    tidal_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     last_synced_at: Optional[datetime] = None
