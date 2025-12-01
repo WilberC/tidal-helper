@@ -85,6 +85,17 @@
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
+          <!-- Skeleton Loader -->
+          <div
+            v-if="addingToPlaylistId === playlist.id"
+            class="flex items-center gap-3 p-2 rounded-lg bg-white/5 animate-pulse w-full"
+          >
+            <div class="w-10 h-10 rounded bg-white/10"></div>
+            <div class="flex-1 min-w-0 space-y-2">
+              <div class="h-4 bg-white/10 rounded w-3/4"></div>
+              <div class="h-3 bg-white/10 rounded w-1/2"></div>
+            </div>
+          </div>
         </TransitionGroup>
 
         <div
@@ -122,6 +133,7 @@ const toast = useToast();
 const deleteModalOpen = ref(false);
 const songToDelete = ref<any>(null);
 const playlistToDeleteFrom = ref<number | null>(null);
+const addingToPlaylistId = ref<number | null>(null);
 
 onMounted(async () => {
   await playlistStore.fetchPlaylistsDetailed();
@@ -153,11 +165,13 @@ const onDrop = async (event: DragEvent, targetPlaylistId: number) => {
   }
 
   try {
+    addingToPlaylistId.value = targetPlaylistId;
     await playlistStore.addSong(targetPlaylistId, song);
     toast.success(`Added "${song.title}" to playlist`);
-    await playlistStore.fetchPlaylistsDetailed();
   } catch (e) {
     // Error handled in store
+  } finally {
+    addingToPlaylistId.value = null;
   }
 };
 

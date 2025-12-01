@@ -75,11 +75,11 @@ class PlaylistService:
         self.session.commit()
         return True
 
-    def add_song(self, playlist_id: int, song_data: dict) -> bool:
+    def add_song(self, playlist_id: int, song_data: dict) -> Optional[Song]:
         # Check if playlist exists
         playlist = self.get_playlist(playlist_id)
         if not playlist:
-            return False
+            return None
 
         # Check if song exists in DB, if not create it
         statement = select(Song).where(Song.tidal_id == song_data["tidal_id"])
@@ -98,7 +98,7 @@ class PlaylistService:
         )
         existing_link = self.session.exec(link_statement).first()
         if existing_link:
-            return True  # Already exists
+            return song  # Already exists
 
         # Get max order
         max_order_stmt = select(func.max(PlaylistSongLink.order)).where(
@@ -124,7 +124,7 @@ class PlaylistService:
                 session=self.session,
             )
 
-        return True
+        return song
 
     def remove_song(self, playlist_id: int, song_id: int) -> bool:
         statement = select(PlaylistSongLink).where(

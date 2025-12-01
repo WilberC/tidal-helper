@@ -9,6 +9,7 @@ from app.schemas import (
     PlaylistUpdate,
     SongCreate,
     PlaylistReadWithSongs,
+    SongRead,
 )
 from app.services.playlist_service import PlaylistService
 from app.services.sync_service import SyncService
@@ -113,7 +114,7 @@ def delete_playlist(
     return service.delete_playlist(playlist_id)
 
 
-@router.post("/{playlist_id}/songs", response_model=bool)
+@router.post("/{playlist_id}/songs", response_model=SongRead)
 def add_song_to_playlist(
     playlist_id: int,
     song_in: SongCreate,
@@ -129,7 +130,10 @@ def add_song_to_playlist(
             status_code=403, detail="Not authorized to update this playlist"
         )
 
-    return service.add_song(playlist_id, song_in.dict())
+    song = service.add_song(playlist_id, song_in.dict())
+    if not song:
+        raise HTTPException(status_code=500, detail="Failed to add song")
+    return song
 
 
 @router.delete("/{playlist_id}/songs/{song_id}", response_model=bool)

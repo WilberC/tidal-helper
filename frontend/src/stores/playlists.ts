@@ -165,15 +165,30 @@ export const usePlaylistStore = defineStore("playlists", () => {
   };
 
   const addSong = async (playlistId: number, song: Song) => {
-    // Optimistic update? No, let's wait for server.
     try {
-      await axios.post(
+      const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/v1/playlists/${playlistId}/songs`,
         song,
         { headers: getHeaders() }
       );
-      // Refresh playlist to get updated list (including new song with internal ID)
-      await fetchPlaylist(playlistId);
+      const addedSong = response.data;
+
+      // Update local state
+      const playlist = playlists.value.find((p) => p.id === playlistId);
+      if (playlist) {
+        if (!playlist.songs) playlist.songs = [];
+        if (!playlist.songs.some((s) => s.id === addedSong.id)) {
+          playlist.songs.push(addedSong);
+        }
+      }
+
+      // Update currentPlaylist if it matches
+      if (currentPlaylist.value?.id === playlistId) {
+        if (!currentPlaylist.value.songs) currentPlaylist.value.songs = [];
+        if (!currentPlaylist.value.songs.some((s) => s.id === addedSong.id)) {
+          currentPlaylist.value.songs.push(addedSong);
+        }
+      }
     } catch (err: any) {
       error.value = err.response?.data?.detail || "Failed to add song";
       throw err;
