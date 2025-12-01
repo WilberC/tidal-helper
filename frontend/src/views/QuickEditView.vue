@@ -59,16 +59,25 @@
           class="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar relative"
         >
           <div
-            v-for="song in playlist.songs"
+            v-for="(song, index) in playlist.songs"
             :key="`${playlist.id}-${song.id}`"
-            class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 cursor-grab active:cursor-grabbing group transition-colors w-full"
+            class="flex items-center gap-3 p-2 rounded-lg cursor-grab active:cursor-grabbing group transition-colors w-full select-none"
             :class="{
               'animate-pulse bg-white/5 pointer-events-none':
                 deletingItem?.playlistId === playlist.id &&
                 deletingItem?.songId === song.id,
+              'bg-cyan-500/20 border border-cyan-500/30': isSelected(
+                playlist.id,
+                song.id
+              ),
+              'hover:bg-white/10': !isSelected(playlist.id, song.id),
+              'bg-white/5':
+                !isSelected(playlist.id, song.id) &&
+                deletingItem?.playlistId !== playlist.id,
             }"
             draggable="true"
             @dragstart="onDragStart($event, song, playlist.id)"
+            @click="handleSelection($event, song, playlist.id, index)"
           >
             <template
               v-if="
@@ -105,16 +114,19 @@
             </template>
           </div>
           <!-- Skeleton Loader -->
-          <div
-            v-if="addingToPlaylistId === playlist.id"
-            class="flex items-center gap-3 p-2 rounded-lg bg-white/5 animate-pulse w-full"
-          >
-            <div class="w-10 h-10 rounded bg-white/10"></div>
-            <div class="flex-1 min-w-0 space-y-2">
-              <div class="h-4 bg-white/10 rounded w-3/4"></div>
-              <div class="h-3 bg-white/10 rounded w-1/2"></div>
+          <template v-if="addingState?.playlistId === playlist.id">
+            <div
+              v-for="n in addingState.count"
+              :key="`skeleton-${n}`"
+              class="flex items-center gap-3 p-2 rounded-lg bg-white/5 animate-pulse w-full"
+            >
+              <div class="w-10 h-10 rounded bg-white/10"></div>
+              <div class="flex-1 min-w-0 space-y-2">
+                <div class="h-4 bg-white/10 rounded w-3/4"></div>
+                <div class="h-3 bg-white/10 rounded w-1/2"></div>
+              </div>
             </div>
-          </div>
+          </template>
         </TransitionGroup>
 
         <div
@@ -152,19 +164,107 @@ const toast = useToast();
 const deleteModalOpen = ref(false);
 const songToDelete = ref<any>(null);
 const playlistToDeleteFrom = ref<number | null>(null);
-const addingToPlaylistId = ref<number | null>(null);
+const addingState = ref<{ playlistId: number; count: number } | null>(null);
 const deletingItem = ref<{ playlistId: number; songId: number } | null>(null);
 
 onMounted(async () => {
   await playlistStore.fetchPlaylistsDetailed();
 });
 
+const selectedSongs = ref<Set<string>>(new Set());
+const lastSelected = ref<{ playlistId: number; index: number } | null>(null);
+
+const getSelectionKey = (playlistId: number, songId: number) =>
+  `${playlistId}-${songId}`;
+
+const isSelected = (playlistId: number, songId: number | undefined) =>
+  songId ? selectedSongs.value.has(getSelectionKey(playlistId, songId)) : false;
+
+const handleSelection = (
+  event: MouseEvent,
+  song: any,
+  playlistId: number,
+  index: number
+) => {
+  if (!song.id) return;
+  const key = getSelectionKey(playlistId, song.id);
+
+  // Enforce single-playlist selection
+  if (selectedSongs.value.size > 0) {
+    const firstKey = selectedSongs.value.values().next().value;
+    if (firstKey) {
+      const [firstPlaylistId] = firstKey.split("-");
+      if (parseInt(firstPlaylistId) !== playlistId) {
+        selectedSongs.value.clear();
+      }
+    }
+  }
+
+  if (
+    event.shiftKey &&
+    lastSelected.value &&
+    lastSelected.value.playlistId === playlistId
+  ) {
+    const start = Math.min(lastSelected.value.index, index);
+    const end = Math.max(lastSelected.value.index, index);
+    const playlist = playlists.value.find((p) => p.id === playlistId);
+
+    if (playlist && playlist.songs) {
+      if (!event.ctrlKey && !event.metaKey) {
+        selectedSongs.value.clear();
+      }
+      for (let i = start; i <= end; i++) {
+        const s = playlist.songs[i];
+        if (s.id) {
+          selectedSongs.value.add(getSelectionKey(playlistId, s.id));
+        }
+      }
+    }
+  } else if (event.ctrlKey || event.metaKey) {
+    if (selectedSongs.value.has(key)) {
+      selectedSongs.value.delete(key);
+    } else {
+      selectedSongs.value.add(key);
+    }
+    lastSelected.value = { playlistId, index };
+  } else {
+    selectedSongs.value.clear();
+    selectedSongs.value.add(key);
+    lastSelected.value = { playlistId, index };
+  }
+};
+
 const onDragStart = (event: DragEvent, song: any, sourcePlaylistId: number) => {
+  if (!song.id) return;
   if (event.dataTransfer) {
+    // If dragging an unselected item, select it first (and clear others)
+    if (!isSelected(sourcePlaylistId, song.id)) {
+      selectedSongs.value.clear();
+      selectedSongs.value.add(getSelectionKey(sourcePlaylistId, song.id));
+      const playlist = playlists.value.find((p) => p.id === sourcePlaylistId);
+      const index =
+        playlist?.songs?.findIndex((s: any) => s.id === song.id) ?? 0;
+      lastSelected.value = { playlistId: sourcePlaylistId, index };
+    }
+
+    // Collect all selected songs
+    const songsToDrag: any[] = [];
+    const playlist = playlists.value.find((p) => p.id === sourcePlaylistId);
+    if (playlist && playlist.songs) {
+      playlist.songs.forEach((s: any) => {
+        if (
+          s.id &&
+          selectedSongs.value.has(getSelectionKey(sourcePlaylistId, s.id))
+        ) {
+          songsToDrag.push(s);
+        }
+      });
+    }
+
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData(
       "application/json",
-      JSON.stringify({ song, sourcePlaylistId })
+      JSON.stringify({ songs: songsToDrag, sourcePlaylistId })
     );
   }
 };
@@ -173,25 +273,42 @@ const onDrop = async (event: DragEvent, targetPlaylistId: number) => {
   const data = event.dataTransfer?.getData("application/json");
   if (!data) return;
 
-  const { song, sourcePlaylistId } = JSON.parse(data);
+  const { songs, sourcePlaylistId } = JSON.parse(data);
 
   if (sourcePlaylistId === targetPlaylistId) return;
 
-  // Check if song already exists in target playlist
   const targetPlaylist = playlists.value.find((p) => p.id === targetPlaylistId);
-  if (targetPlaylist?.songs?.some((s) => s.tidal_id === song.tidal_id)) {
-    toast.warning("Song already in playlist");
-    return;
-  }
+  if (!targetPlaylist) return;
+
+  addingState.value = { playlistId: targetPlaylistId, count: songs.length };
+  let addedCount = 0;
+  let skippedCount = 0;
 
   try {
-    addingToPlaylistId.value = targetPlaylistId;
-    await playlistStore.addSong(targetPlaylistId, song);
-    toast.success(`Added "${song.title}" to playlist`);
+    for (const song of songs) {
+      if (targetPlaylist.songs?.some((s) => s.tidal_id === song.tidal_id)) {
+        skippedCount++;
+        continue;
+      }
+      await playlistStore.addSong(targetPlaylistId, song);
+      addedCount++;
+    }
+
+    if (addedCount > 0) {
+      toast.success(
+        `Added ${addedCount} song${addedCount > 1 ? "s" : ""} to playlist`
+      );
+    }
+    if (skippedCount > 0) {
+      toast.warning(
+        `${skippedCount} song${skippedCount > 1 ? "s" : ""} already in playlist`
+      );
+    }
   } catch (e) {
     // Error handled in store
   } finally {
-    addingToPlaylistId.value = null;
+    addingState.value = null;
+    selectedSongs.value.clear();
   }
 };
 
