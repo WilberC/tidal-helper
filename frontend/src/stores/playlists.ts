@@ -54,6 +54,25 @@ export const usePlaylistStore = defineStore("playlists", () => {
     }
   };
 
+  const fetchPlaylistsDetailed = async () => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/v1/playlists/detailed`,
+        {
+          headers: getHeaders(),
+        }
+      );
+      playlists.value = response.data;
+    } catch (err: any) {
+      error.value =
+        err.response?.data?.detail || "Failed to fetch detailed playlists";
+    } finally {
+      loading.value = false;
+    }
+  };
+
   const fetchPlaylist = async (id: number) => {
     loading.value = true;
     error.value = null;
@@ -240,6 +259,7 @@ export const usePlaylistStore = defineStore("playlists", () => {
     loading,
     error,
     fetchPlaylists,
+    fetchPlaylistsDetailed,
     fetchPlaylist,
     createPlaylist,
     updatePlaylist,

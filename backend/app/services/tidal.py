@@ -51,6 +51,15 @@ class TidalService:
     def __init__(self):
         self.session = tidalapi.Session()
 
+    def _get_cover_url(self, cover_id: str, width: int = 320, height: int = 320) -> str:
+        if not cover_id:
+            return None
+        if cover_id.startswith("http"):
+            return cover_id
+        # Replace hyphens with slashes
+        path = cover_id.replace("-", "/")
+        return f"https://resources.tidal.com/images/{path}/{width}x{height}.jpg"
+
     def start_oauth_login(self):
         login, _ = self.session.login_oauth()
         url = login.verification_uri_complete
@@ -132,15 +141,10 @@ class TidalService:
             for track in tracks:
                 if track is None:
                     continue
-                # Handle cover URL safely
-                cover_url = None
-                if hasattr(track.album, "cover") and track.album.cover:
-                    # tidalapi might return a method or property for cover
-                    # usually it's a string or we need to construct it
-                    # For now, let's assume it's a property that gives the ID or URL
-                    # If it's an ID, we might need a helper to get the URL.
-                    # Let's just store what we get for now.
-                    cover_url = str(track.album.cover)
+                    # Handle cover URL safely
+                    cover_url = None
+                    if hasattr(track.album, "cover") and track.album.cover:
+                        cover_url = self._get_cover_url(str(track.album.cover))
 
                 song_results.append(
                     {
@@ -172,7 +176,7 @@ class TidalService:
             # Map to Song dict
             cover_url = None
             if hasattr(track.album, "cover") and track.album.cover:
-                cover_url = str(track.album.cover)
+                cover_url = self._get_cover_url(str(track.album.cover))
 
             return {
                 "tidal_id": track.id,
@@ -235,7 +239,7 @@ class TidalService:
                 # Handle cover URL safely
                 cover_url = None
                 if hasattr(track.album, "cover") and track.album.cover:
-                    cover_url = str(track.album.cover)
+                    cover_url = self._get_cover_url(str(track.album.cover))
 
                 song_results.append(
                     {
@@ -275,7 +279,7 @@ class TidalService:
                 # Handle cover URL safely
                 cover_url = None
                 if hasattr(track.album, "cover") and track.album.cover:
-                    cover_url = str(track.album.cover)
+                    cover_url = self._get_cover_url(str(track.album.cover))
 
                 song_results.append(
                     {

@@ -90,7 +90,11 @@ class SyncService:
                 self.session.refresh(local_song)
             else:
                 # Update song metadata if needed
-                local_song.is_available = True  # It's on Tidal, so it's available
+                local_song.title = t_song["title"]
+                local_song.artist = t_song["artist"]
+                local_song.album = t_song["album"]
+                local_song.cover_url = t_song["cover_url"]
+                local_song.is_available = True
                 self.session.add(local_song)
 
             # Create link
@@ -220,6 +224,10 @@ class SyncService:
                 self.session.commit()
                 self.session.refresh(local_song)
             else:
+                local_song.title = t_song["title"]
+                local_song.artist = t_song["artist"]
+                local_song.album = t_song["album"]
+                local_song.cover_url = t_song.get("cover_url")
                 local_song.is_available = True
                 self.session.add(local_song)
 

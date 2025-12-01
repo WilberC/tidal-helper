@@ -34,6 +34,12 @@ const router = createRouter({
       component: () => import("../views/PlaylistDetailView.vue"),
       meta: { requiresAuth: true },
     },
+    {
+      path: "/quick-edit",
+      name: "quick-edit",
+      component: () => import("../views/QuickEditView.vue"),
+      meta: { requiresAuth: true },
+    },
   ],
 });
 

@@ -16,6 +16,19 @@ from app.services.sync_service import SyncService
 router = APIRouter()
 
 
+@router.get("/detailed", response_model=List[PlaylistReadWithSongs])
+def read_playlists_detailed(
+    skip: int = 0,
+    limit: int = 100,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    service = PlaylistService(session)
+    return service.get_playlists_with_songs(
+        user_id=current_user.id, skip=skip, limit=limit
+    )
+
+
 @router.post("/", response_model=PlaylistRead)
 def create_playlist(
     playlist_in: PlaylistCreate,

@@ -212,6 +212,12 @@ const openPlaylist = (id: number) => {
           <span v-else>Connect Tidal</span>
         </button>
         <button
+          @click="router.push('/quick-edit')"
+          class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition mr-2"
+        >
+          Quick Edit
+        </button>
+        <button
           @click="openCreate"
           class="bg-cyan-500 hover:bg-cyan-600 text-black font-bold py-2 px-4 rounded transition"
         >

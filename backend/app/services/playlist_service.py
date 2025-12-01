@@ -6,6 +6,9 @@ from app.models.song import Song
 from app.models.playlist_song_link import PlaylistSongLink
 
 
+from sqlalchemy.orm import selectinload
+
+
 class PlaylistService:
     def __init__(self, session: Session):
         self.session = session
@@ -25,6 +28,18 @@ class PlaylistService:
         statement = (
             select(Playlist)
             .where(Playlist.user_id == user_id)
+            .offset(skip)
+            .limit(limit)
+        )
+        return self.session.exec(statement).all()
+
+    def get_playlists_with_songs(
+        self, user_id: int, skip: int = 0, limit: int = 100
+    ) -> List[Playlist]:
+        statement = (
+            select(Playlist)
+            .where(Playlist.user_id == user_id)
+            .options(selectinload(Playlist.songs))
             .offset(skip)
             .limit(limit)
         )
