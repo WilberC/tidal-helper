@@ -20,6 +20,7 @@ interface Playlist {
   description?: string;
   created_at: string;
   updated_at: string;
+  last_synced_at?: string;
   songs?: Song[];
 }
 
@@ -184,10 +185,26 @@ export const usePlaylistStore = defineStore("playlists", () => {
         `${import.meta.env.VITE_API_URL}/api/v1/playlists/${playlistId}/songs/${songId}`,
         { headers: getHeaders() }
       );
-      if (currentPlaylist.value && currentPlaylist.value.songs) {
+
+      // Update current playlist if it's the one being modified
+      if (
+        currentPlaylist.value &&
+        currentPlaylist.value.id === playlistId &&
+        currentPlaylist.value.songs
+      ) {
         currentPlaylist.value.songs = currentPlaylist.value.songs.filter(
           (s) => s.id !== songId
         );
+      }
+
+      // Update the playlist in the playlists list
+      const playlistIndex = playlists.value.findIndex(
+        (p) => p.id === playlistId
+      );
+      if (playlistIndex !== -1 && playlists.value[playlistIndex].songs) {
+        playlists.value[playlistIndex].songs = playlists.value[
+          playlistIndex
+        ].songs.filter((s) => s.id !== songId);
       }
     } catch (err: any) {
       error.value = err.response?.data?.detail || "Failed to remove song";
@@ -253,6 +270,27 @@ export const usePlaylistStore = defineStore("playlists", () => {
     }
   };
 
+  const syncPlaylist = async (playlistId: number) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/v1/playlists/${playlistId}/sync`,
+        {},
+        { headers: getHeaders() }
+      );
+      // Refresh playlist to get updated last_synced_at
+      await fetchPlaylist(playlistId);
+      // Also refresh detailed playlists if we are in QuickEditView
+      await fetchPlaylistsDetailed();
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || "Failed to sync playlist";
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   return {
     playlists,
     currentPlaylist,
@@ -269,5 +307,6 @@ export const usePlaylistStore = defineStore("playlists", () => {
     reorderSongs,
     refreshSong,
     syncData,
+    syncPlaylist,
   };
 });

@@ -33,12 +33,29 @@
       >
         <!-- Header -->
         <div class="p-4 border-b border-white/10 bg-white/5">
-          <h3 class="font-bold text-lg truncate" :title="playlist.name">
-            {{ playlist.name }}
-          </h3>
-          <p class="text-xs text-gray-400">
-            {{ playlist.songs?.length || 0 }} songs
-          </p>
+          <div class="flex justify-between items-start mb-2">
+            <h3
+              class="font-bold text-lg truncate flex-1 mr-2"
+              :title="playlist.name"
+            >
+              {{ playlist.name }}
+            </h3>
+            <button
+              @click="handleSyncPlaylist(playlist.id)"
+              class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              :disabled="syncingPlaylistId === playlist.id"
+              title="Sync Up"
+            >
+              <RefreshCw
+                class="w-4 h-4"
+                :class="{ 'animate-spin': syncingPlaylistId === playlist.id }"
+              />
+            </button>
+          </div>
+          <div class="flex justify-between items-end text-xs text-gray-400">
+            <p>{{ playlist.songs?.length || 0 }} songs</p>
+            <p>Last push: {{ formatDate(playlist.last_synced_at) }}</p>
+          </div>
         </div>
 
         <!-- Body (Songs List) -->
@@ -61,6 +78,14 @@
               </p>
               <p class="text-xs text-gray-400 truncate">{{ song.artist }}</p>
             </div>
+            <button
+              v-if="song.id"
+              @click.stop="handleRemoveSong(playlist.id, song.id)"
+              class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all"
+              title="Remove from playlist"
+            >
+              <Trash2 class="w-4 h-4" />
+            </button>
           </div>
 
           <div
@@ -77,14 +102,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from "vue";
+import { onMounted, computed, ref } from "vue";
 import { usePlaylistStore } from "@/stores/playlists";
 import { storeToRefs } from "pinia";
 import { useToast } from "vue-toastification";
+import { RefreshCw, Trash2 } from "lucide-vue-next";
 
 const playlistStore = usePlaylistStore();
 const { playlists, loading, error } = storeToRefs(playlistStore);
 const toast = useToast();
+const syncingPlaylistId = ref<number | null>(null);
 
 onMounted(async () => {
   await playlistStore.fetchPlaylistsDetailed();
@@ -118,19 +145,38 @@ const onDrop = async (event: DragEvent, targetPlaylistId: number) => {
   try {
     await playlistStore.addSong(targetPlaylistId, song);
     toast.success(`Added "${song.title}" to playlist`);
-    // Refresh detailed playlists to update UI
-    // await playlistStore.fetchPlaylistsDetailed();
-    // Optimization: Manually update the local state instead of full refetch if possible,
-    // but addSong in store calls fetchPlaylist(id) which updates currentPlaylist, not the list in 'playlists'.
-    // So we should probably refetch or manually update.
-    // Let's manually push to the list for immediate feedback if we can, or just refetch.
-    // Refetching detailed playlists might be heavy.
-    // Ideally, addSong should return the added song or we construct it.
-    // For now, let's just refetch detailed playlists to be safe and consistent.
     await playlistStore.fetchPlaylistsDetailed();
   } catch (e) {
     // Error handled in store
   }
+};
+
+const handleSyncPlaylist = async (playlistId: number) => {
+  if (syncingPlaylistId.value) return;
+  syncingPlaylistId.value = playlistId;
+  try {
+    await playlistStore.syncPlaylist(playlistId);
+    toast.success("Playlist synced successfully");
+  } catch (e) {
+    // Error handled in store
+  } finally {
+    syncingPlaylistId.value = null;
+  }
+};
+
+const handleRemoveSong = async (playlistId: number, songId: number) => {
+  if (!confirm("Remove this song from the playlist?")) return;
+  try {
+    await playlistStore.removeSong(playlistId, songId);
+    toast.success("Song removed from playlist");
+  } catch (e) {
+    // Error handled in store
+  }
+};
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return "Never";
+  return new Date(dateString).toLocaleString();
 };
 
 const getCoverUrl = (uuid: string | undefined) => {

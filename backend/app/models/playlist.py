@@ -15,6 +15,7 @@ class Playlist(SQLModel, table=True):
     description: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    last_synced_at: Optional[datetime] = Field(default=None)
 
     songs: List["Song"] = Relationship(
         back_populates="playlists", link_model=PlaylistSongLink

@@ -28,6 +28,7 @@ class SyncService:
                 local_pl.name = t_pl["name"]
                 local_pl.description = t_pl["description"]
                 local_pl.updated_at = datetime.utcnow()
+                local_pl.last_synced_at = datetime.utcnow()
                 self.session.add(local_pl)
             else:
                 # Create new playlist
@@ -36,6 +37,7 @@ class SyncService:
                     tidal_id=t_pl["tidal_id"],
                     name=t_pl["name"],
                     description=t_pl["description"],
+                    last_synced_at=datetime.utcnow(),
                 )
                 self.session.add(local_pl)
                 self.session.commit()  # Commit to get ID

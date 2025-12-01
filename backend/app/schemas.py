@@ -22,6 +22,7 @@ class PlaylistRead(PlaylistBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
+    last_synced_at: Optional[datetime] = None
 
 
 class SongBase(SQLModel):
