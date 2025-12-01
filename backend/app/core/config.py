@@ -1,4 +1,3 @@
-from typing import Optional
 from pydantic_settings import BaseSettings
 import os
 
@@ -19,6 +18,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
         "http://localhost:3000",
+        "http://localhost:22002",
     ]
 
     class Config:

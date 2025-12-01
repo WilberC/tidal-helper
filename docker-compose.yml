@@ -7,13 +7,13 @@ services:
     volumes:
       - ./data:/data
     ports:
-      - "8000:8000"
+      - "22001:8000"
     environment:
       - DATABASE_URL=sqlite:////data/tidal_helper.db
 
   frontend:
     build: ./frontend
     ports:
-      - "5173:80"
+      - "22002:80"
     depends_on:
       - backend

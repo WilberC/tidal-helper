@@ -41,8 +41,8 @@ A tool to help manage Tidal music playlists and songs.
     ```
 
 4.  **Access the Application:**
-    - **Frontend**: [http://localhost:5173](http://localhost:5173)
-    - **Backend API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+    - **Frontend**: [http://localhost:22002](http://localhost:22002)
+    - **Backend API Docs**: [http://localhost:22001/docs](http://localhost:22001/docs)
 
 ## Development
 
