@@ -28,6 +28,12 @@ const router = createRouter({
       component: () => import("../views/DashboardView.vue"), // Lazy load
       meta: { requiresAuth: true },
     },
+    {
+      path: "/playlist/:id",
+      name: "playlist-detail",
+      component: () => import("../views/PlaylistDetailView.vue"),
+      meta: { requiresAuth: true },
+    },
   ],
 });
 
