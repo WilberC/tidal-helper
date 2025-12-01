@@ -28,10 +28,10 @@ const deleteId = ref<number | null>(null);
 const isSyncing = ref(false);
 const syncMessage = ref("");
 
-const handleSync = async () => {
+const handleSync = async (type: "playlists" | "tracks" | "mixes") => {
   isSyncing.value = true;
   try {
-    const result = await playlistStore.syncData();
+    const result = await playlistStore.syncData(type);
     syncMessage.value = result.message;
     setTimeout(() => {
       syncMessage.value = "";
@@ -136,35 +136,52 @@ const openPlaylist = (id: number) => {
     <div class="flex justify-between items-center mb-8">
       <h1 class="text-3xl font-bold text-cyan-400">My Playlists</h1>
       <div class="flex gap-4">
-        <button
-          v-if="authStore.isTidalConnected"
-          @click="handleSync"
-          :disabled="isSyncing"
-          class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <svg
-            v-if="isSyncing"
-            class="animate-spin h-5 w-5 text-white"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
+        <div v-if="authStore.isTidalConnected" class="flex gap-2">
+          <button
+            @click="handleSync('playlists')"
+            :disabled="isSyncing"
+            class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          <span v-else>Sync Data</span>
-        </button>
+            <svg
+              v-if="isSyncing"
+              class="animate-spin h-5 w-5 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <span v-else>Sync Playlists</span>
+          </button>
+          <button
+            @click="handleSync('tracks')"
+            :disabled="isSyncing"
+            class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="!isSyncing">Sync Tracks</span>
+            <span v-else>...</span>
+          </button>
+          <button
+            @click="handleSync('mixes')"
+            :disabled="isSyncing"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="!isSyncing">Sync Mixes</span>
+            <span v-else>...</span>
+          </button>
+        </div>
         <button
           v-else
           @click="handleConnectTidal"

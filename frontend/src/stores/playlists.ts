@@ -212,12 +212,14 @@ export const usePlaylistStore = defineStore("playlists", () => {
     }
   };
 
-  const syncData = async () => {
+  const syncData = async (
+    syncType: "playlists" | "tracks" | "mixes" = "playlists"
+  ) => {
     loading.value = true;
     error.value = null;
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/v1/sync/`,
+        `${import.meta.env.VITE_API_URL}/api/v1/sync/?sync_type=${syncType}`,
         {},
         { headers: getHeaders() }
       );
