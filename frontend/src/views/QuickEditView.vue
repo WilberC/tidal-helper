@@ -40,17 +40,6 @@
             >
               {{ playlist.name }}
             </h3>
-            <button
-              @click="handleSyncPlaylist(playlist.id)"
-              class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-              :disabled="syncingPlaylistId === playlist.id"
-              title="Sync Up"
-            >
-              <RefreshCw
-                class="w-4 h-4"
-                :class="{ 'animate-spin': syncingPlaylistId === playlist.id }"
-              />
-            </button>
           </div>
           <div class="flex justify-between items-end text-xs text-gray-400">
             <p>
@@ -111,12 +100,11 @@ import { onMounted, computed, ref } from "vue";
 import { usePlaylistStore } from "@/stores/playlists";
 import { storeToRefs } from "pinia";
 import { useToast } from "vue-toastification";
-import { RefreshCw, Trash2 } from "lucide-vue-next";
+import { Trash2 } from "lucide-vue-next";
 
 const playlistStore = usePlaylistStore();
 const { playlists, loading, error } = storeToRefs(playlistStore);
 const toast = useToast();
-const syncingPlaylistId = ref<number | null>(null);
 
 onMounted(async () => {
   await playlistStore.fetchPlaylistsDetailed();
@@ -153,19 +141,6 @@ const onDrop = async (event: DragEvent, targetPlaylistId: number) => {
     await playlistStore.fetchPlaylistsDetailed();
   } catch (e) {
     // Error handled in store
-  }
-};
-
-const handleSyncPlaylist = async (playlistId: number) => {
-  if (syncingPlaylistId.value) return;
-  syncingPlaylistId.value = playlistId;
-  try {
-    await playlistStore.syncPlaylist(playlistId);
-    toast.success("Playlist synced successfully");
-  } catch (e) {
-    // Error handled in store
-  } finally {
-    syncingPlaylistId.value = null;
   }
 };
 

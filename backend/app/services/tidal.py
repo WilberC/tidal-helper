@@ -344,5 +344,28 @@ class TidalService:
             print(f"Error fetching mixes: {e}")
             return []
 
+    def add_song_to_playlist(
+        self,
+        playlist_id: str,
+        song_ids: list,
+        user_id: int = None,
+        session: Session = None,
+    ):
+        if not self.session.check_login():
+            if user_id and session:
+                if not self.load_session(user_id, session):
+                    return False
+            else:
+                return False
+
+        rate_limiter.wait()
+        try:
+            playlist = self.session.playlist(playlist_id)
+            playlist.add(song_ids)
+            return True
+        except Exception as e:
+            print(f"Error adding song to playlist: {e}")
+            return False
+
 
 tidal_service = TidalService()
