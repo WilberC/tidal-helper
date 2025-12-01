@@ -79,6 +79,7 @@
             draggable="true"
             @dragstart="onDragStart($event, song, playlist.id)"
             @click="handleSelection($event, song, playlist.id, index)"
+            @contextmenu.prevent="handleContextMenu($event, song, playlist.id)"
           >
             <template
               v-if="
@@ -147,24 +148,66 @@
       @confirm="confirmDelete"
       @cancel="deleteModalOpen = false"
     />
+
+    <MoveToPlaylistModal
+      :is-open="moveModalOpen"
+      :playlists="playlists"
+      :current-playlist-id="playlistToMoveFrom || undefined"
+      @close="moveModalOpen = false"
+      @move="confirmMove"
+    />
+
+    <!-- Context Menu -->
+    <div
+      v-if="contextMenu.visible"
+      class="fixed z-50 bg-gray-800 border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+      :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
+    >
+      <button
+        @click="openMoveModal"
+        class="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-white/10 flex items-center gap-2"
+      >
+        <Move class="w-4 h-4" />
+        Move to...
+      </button>
+      <button
+        @click="handleContextRemove"
+        class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10 flex items-center gap-2"
+      >
+        <Trash2 class="w-4 h-4" />
+        Remove
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref } from "vue";
+import { onMounted, computed, ref, onUnmounted } from "vue";
 import { usePlaylistStore } from "@/stores/playlists";
 import { storeToRefs } from "pinia";
 import { useToast } from "vue-toastification";
-import { Trash2 } from "lucide-vue-next";
+import { Trash2, Move } from "lucide-vue-next";
 import ConfirmationModal from "@/components/ConfirmationModal.vue";
+import MoveToPlaylistModal from "@/components/MoveToPlaylistModal.vue";
 
 const playlistStore = usePlaylistStore();
 const { playlists, loading, error } = storeToRefs(playlistStore);
 const toast = useToast();
 
 const deleteModalOpen = ref(false);
+const moveModalOpen = ref(false);
 const songsToDelete = ref<any[]>([]);
 const playlistToDeleteFrom = ref<number | null>(null);
+const playlistToMoveFrom = ref<number | null>(null);
+const songsToMove = ref<any[]>([]);
+
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  playlistId: null as number | null,
+  song: null as any,
+});
 const addingState = ref<{ playlistId: number; count: number } | null>(null);
 const deletingItems = ref<Set<string>>(new Set());
 
@@ -381,6 +424,140 @@ const confirmDelete = async () => {
     selectedSongs.value.clear();
   }
 };
+
+const handleContextMenu = (
+  event: MouseEvent,
+  song: any,
+  playlistId: number
+) => {
+  if (!song.id) return;
+
+  // If right-clicked song is not selected, select it (and clear others)
+  if (!isSelected(playlistId, song.id)) {
+    selectedSongs.value.clear();
+    selectedSongs.value.add(getSelectionKey(playlistId, song.id));
+    lastSelected.value = {
+      playlistId,
+      index:
+        playlists.value
+          .find((p) => p.id === playlistId)
+          ?.songs?.findIndex((s) => s.id === song.id) ?? 0,
+    };
+  }
+
+  contextMenu.value = {
+    visible: true,
+    x: event.clientX,
+    y: event.clientY,
+    playlistId,
+    song,
+  };
+};
+
+const closeContextMenu = () => {
+  contextMenu.value.visible = false;
+};
+
+const openMoveModal = () => {
+  if (!contextMenu.value.playlistId) return;
+
+  playlistToMoveFrom.value = contextMenu.value.playlistId;
+
+  // Collect selected songs
+  const playlist = playlists.value.find(
+    (p) => p.id === contextMenu.value.playlistId
+  );
+  if (playlist && playlist.songs) {
+    songsToMove.value = playlist.songs.filter(
+      (s) =>
+        s.id &&
+        selectedSongs.value.has(
+          getSelectionKey(contextMenu.value.playlistId!, s.id)
+        )
+    );
+  }
+
+  moveModalOpen.value = true;
+  closeContextMenu();
+};
+
+const handleContextRemove = () => {
+  if (!contextMenu.value.playlistId || !contextMenu.value.song) return;
+  handleRemoveSong(contextMenu.value.playlistId, contextMenu.value.song);
+  closeContextMenu();
+};
+
+const confirmMove = async (targetPlaylistId: number) => {
+  if (!playlistToMoveFrom.value || songsToMove.value.length === 0) return;
+
+  const sourcePlaylistId = playlistToMoveFrom.value;
+  const songs = [...songsToMove.value];
+
+  // Close modal
+  moveModalOpen.value = false;
+
+  // Optimistic UI update could be complex here, so we'll rely on store updates
+  // But we can show loading state if we want. For now, just toast.
+
+  let movedCount = 0;
+  let skippedCount = 0;
+
+  try {
+    const targetPlaylist = playlists.value.find(
+      (p) => p.id === targetPlaylistId
+    );
+
+    for (const song of songs) {
+      if (!song.id) continue;
+
+      // Check if already in target
+      const exists = targetPlaylist?.songs?.some(
+        (s) => s.tidal_id === song.tidal_id
+      );
+
+      if (!exists) {
+        // Add to new playlist
+        await playlistStore.addSong(targetPlaylistId, song);
+        // Remove from old playlist
+        await playlistStore.removeSong(sourcePlaylistId, song.id);
+        movedCount++;
+      } else {
+        // If it exists in target, we might still want to remove it from source?
+        // "Move" usually implies it ends up in target and not in source.
+        // If it's already in target, we should just remove from source.
+        await playlistStore.removeSong(sourcePlaylistId, song.id);
+        skippedCount++; // It was "skipped" for adding, but "moved" effectively.
+      }
+    }
+
+    if (movedCount > 0) {
+      toast.success(
+        `Moved ${movedCount} song${movedCount > 1 ? "s" : ""} to playlist`
+      );
+    }
+    if (skippedCount > 0) {
+      toast.info(
+        `${skippedCount} song${skippedCount > 1 ? "s" : ""} were already in target playlist (removed from source)`
+      );
+    }
+  } catch (e) {
+    console.error(e);
+    toast.error("Failed to move some songs");
+  } finally {
+    selectedSongs.value.clear();
+    songsToMove.value = [];
+    playlistToMoveFrom.value = null;
+  }
+};
+
+// Close context menu on click outside
+onMounted(() => {
+  document.addEventListener("click", closeContextMenu);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", closeContextMenu);
+});
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return "Never";

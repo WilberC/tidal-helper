@@ -87,6 +87,8 @@ const goBack = () => {
 
 const getCoverUrl = (uuid: string | undefined) => {
   if (!uuid) return "";
+  uuid = uuid.replace("https://resources.tidal.com/images/", "");
+  uuid = uuid.replace("/320x320.jpg", "");
   return `https://resources.tidal.com/images/${uuid.replace(/-/g, "/")}/80x80.jpg`;
 };
 </script>
