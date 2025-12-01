@@ -65,6 +65,19 @@ class PlaylistService:
         self.session.add(playlist)
         self.session.commit()
         self.session.refresh(playlist)
+
+        # Sync to Tidal if playlist is linked
+        if playlist.tidal_id:
+            from app.services.tidal import tidal_service
+
+            tidal_service.edit_playlist(
+                playlist.tidal_id,
+                name=playlist.name,
+                description=playlist.description,
+                user_id=playlist.user_id,
+                session=self.session,
+            )
+
         return playlist
 
     def delete_playlist(self, playlist_id: int) -> bool:

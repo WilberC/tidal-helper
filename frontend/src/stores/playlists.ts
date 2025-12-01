@@ -140,27 +140,57 @@ export const usePlaylistStore = defineStore("playlists", () => {
     name: string,
     description?: string
   ) => {
-    loading.value = true;
-    error.value = null;
+    // Optimistic update
+    const index = playlists.value.findIndex((p) => p.id === id);
+    const originalPlaylist =
+      index !== -1 ? { ...playlists.value[index] } : null;
+    const originalCurrentPlaylist =
+      currentPlaylist.value?.id === id ? { ...currentPlaylist.value } : null;
+
+    if (index !== -1) {
+      playlists.value[index].name = name;
+      if (description !== undefined)
+        playlists.value[index].description = description;
+    }
+    if (currentPlaylist.value?.id === id && currentPlaylist.value) {
+      currentPlaylist.value.name = name;
+      if (description !== undefined)
+        currentPlaylist.value.description = description;
+    }
+
     try {
       const response = await axios.put(
         `${import.meta.env.VITE_API_URL}/api/v1/playlists/${id}`,
         { name, description },
         { headers: getHeaders() }
       );
-      const index = playlists.value.findIndex((p) => p.id === id);
       if (index !== -1) {
-        playlists.value[index] = response.data;
+        // Update properties in place to avoid re-rendering the entire list item
+        const playlist = playlists.value[index];
+        Object.assign(playlist, response.data);
       }
       if (currentPlaylist.value?.id === id) {
-        currentPlaylist.value = { ...currentPlaylist.value, ...response.data };
+        // Also update currentPlaylist in place
+        if (currentPlaylist.value) {
+          Object.assign(currentPlaylist.value, response.data);
+        }
       }
       return response.data;
     } catch (err: any) {
+      // Revert changes on error
+      if (index !== -1 && originalPlaylist) {
+        Object.assign(playlists.value[index], originalPlaylist);
+      }
+      if (
+        currentPlaylist.value?.id === id &&
+        originalCurrentPlaylist &&
+        currentPlaylist.value
+      ) {
+        Object.assign(currentPlaylist.value, originalCurrentPlaylist);
+      }
+
       error.value = err.response?.data?.detail || "Failed to update playlist";
       throw err;
-    } finally {
-      loading.value = false;
     }
   };
 

@@ -33,12 +33,27 @@
       >
         <!-- Header -->
         <div class="p-4 border-b border-white/10 bg-white/5">
-          <div class="flex justify-between items-start mb-2">
+          <div class="flex justify-between items-start mb-2 group/header">
+            <div v-if="editingPlaylistId === playlist.id" class="flex-1 mr-2">
+              <input
+                ref="playlistNameInput"
+                v-model="editingName"
+                @blur="savePlaylistName(playlist)"
+                @keyup.enter="savePlaylistName(playlist)"
+                @keyup.esc="cancelEdit"
+                class="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
+              />
+            </div>
             <h3
-              class="font-bold text-lg truncate flex-1 mr-2"
+              v-else
+              class="font-bold text-lg truncate flex-1 mr-2 cursor-pointer hover:text-cyan-400 transition-colors"
               :title="playlist.name"
+              @click="startEditing(playlist)"
             >
               {{ playlist.name }}
+              <Pencil
+                class="w-3 h-3 inline-block ml-1 opacity-0 group-hover/header:opacity-50"
+              />
             </h3>
           </div>
           <div class="flex justify-between items-end text-xs text-gray-400">
@@ -186,7 +201,7 @@ import { onMounted, computed, ref, onUnmounted } from "vue";
 import { usePlaylistStore } from "@/stores/playlists";
 import { storeToRefs } from "pinia";
 import { useToast } from "vue-toastification";
-import { Trash2, Move } from "lucide-vue-next";
+import { Trash2, Move, Pencil } from "lucide-vue-next";
 import ConfirmationModal from "@/components/ConfirmationModal.vue";
 import MoveToPlaylistModal from "@/components/MoveToPlaylistModal.vue";
 
@@ -200,6 +215,10 @@ const songsToDelete = ref<any[]>([]);
 const playlistToDeleteFrom = ref<number | null>(null);
 const playlistToMoveFrom = ref<number | null>(null);
 const songsToMove = ref<any[]>([]);
+
+const editingPlaylistId = ref<number | null>(null);
+const editingName = ref("");
+const playlistNameInput = ref<HTMLInputElement[] | null>(null);
 
 const contextMenu = ref({
   visible: false,
@@ -548,6 +567,45 @@ const confirmMove = async (targetPlaylistId: number) => {
     songsToMove.value = [];
     playlistToMoveFrom.value = null;
   }
+};
+
+const startEditing = (playlist: any) => {
+  editingPlaylistId.value = playlist.id;
+  editingName.value = playlist.name;
+  // Focus input on next tick
+  setTimeout(() => {
+    if (playlistNameInput.value && playlistNameInput.value[0]) {
+      playlistNameInput.value[0].focus();
+    }
+  }, 0);
+};
+
+const cancelEdit = () => {
+  editingPlaylistId.value = null;
+  editingName.value = "";
+};
+
+const savePlaylistName = (playlist: any) => {
+  if (editingPlaylistId.value !== playlist.id) return;
+
+  const newName = editingName.value.trim();
+  if (!newName || newName === playlist.name) {
+    cancelEdit();
+    return;
+  }
+
+  // Optimistic update: close edit mode immediately
+  cancelEdit();
+
+  playlistStore
+    .updatePlaylist(playlist.id, newName, playlist.description)
+    .then(() => {
+      toast.success("Playlist renamed");
+    })
+    .catch(() => {
+      // Error is handled in store (reverts change), but we can show a toast
+      // toast.error("Failed to rename playlist"); // Store already sets error state, but toast might be good
+    });
 };
 
 // Close context menu on click outside
