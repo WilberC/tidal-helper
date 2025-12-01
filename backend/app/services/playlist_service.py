@@ -135,8 +135,24 @@ class PlaylistService:
         if not link:
             return False
 
+        # Get playlist and song to check for tidal_ids
+        playlist = self.get_playlist(playlist_id)
+        song = self.session.get(Song, song_id)
+
         self.session.delete(link)
         self.session.commit()
+
+        # Sync to Tidal if playlist is linked
+        if playlist and song and playlist.tidal_id and song.tidal_id:
+            from app.services.tidal import tidal_service
+
+            tidal_service.remove_song_from_playlist(
+                playlist.tidal_id,
+                song.tidal_id,
+                user_id=playlist.user_id,
+                session=self.session,
+            )
+
         return True
 
     def reorder_songs(self, playlist_id: int, song_ids: List[int]) -> bool:
