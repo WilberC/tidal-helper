@@ -14,6 +14,30 @@ const playlistId = Number(route.params.id);
 const searchQuery = ref("");
 const searchResults = ref<any[]>([]);
 const isSearching = ref(false);
+const isSyncing = ref(false);
+
+const syncPlaylist = async () => {
+  if (
+    !confirm("Sync this playlist with Tidal? This will update the song list.")
+  )
+    return;
+  isSyncing.value = true;
+  try {
+    await axios.post(
+      `${import.meta.env.VITE_API_URL}/api/v1/playlists/${playlistId}/sync`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${authStore.token}` },
+      }
+    );
+    await playlistStore.fetchPlaylist(playlistId);
+  } catch (error) {
+    console.error("Sync failed", error);
+    alert("Failed to sync playlist");
+  } finally {
+    isSyncing.value = false;
+  }
+};
 
 onMounted(() => {
   playlistStore.fetchPlaylist(playlistId);
@@ -83,8 +107,15 @@ const getCoverUrl = (uuid: string | undefined) => {
     </div>
     <div v-else-if="playlistStore.currentPlaylist">
       <div class="mb-8">
-        <h1 class="text-3xl font-bold text-cyan-400">
+        <h1 class="text-3xl font-bold text-cyan-400 flex items-center gap-4">
           {{ playlistStore.currentPlaylist.name }}
+          <button
+            @click="syncPlaylist"
+            class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm transition font-normal"
+            :disabled="isSyncing"
+          >
+            {{ isSyncing ? "Syncing..." : "Sync" }}
+          </button>
         </h1>
         <p class="text-gray-400">
           {{ playlistStore.currentPlaylist.description }}

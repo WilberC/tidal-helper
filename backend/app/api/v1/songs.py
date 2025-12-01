@@ -17,16 +17,7 @@ def search_songs(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    # Ensure session is loaded
-    if not tidal_service.session.check_login():
-        loaded = tidal_service.load_session(current_user.id, session)
-        if not loaded:
-            raise HTTPException(
-                status_code=401,
-                detail="Tidal session not active. Please login to Tidal.",
-            )
-
-    results = tidal_service.search_tracks(query, limit)
+    results = tidal_service.search_tracks(query, limit, current_user.id, session)
     return results
 
 
@@ -36,20 +27,11 @@ def refresh_song(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    # Ensure session is loaded
-    if not tidal_service.session.check_login():
-        loaded = tidal_service.load_session(current_user.id, session)
-        if not loaded:
-            raise HTTPException(
-                status_code=401,
-                detail="Tidal session not active. Please login to Tidal.",
-            )
-
     song = session.get(Song, song_id)
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
 
-    track_data = tidal_service.get_track(song.tidal_id)
+    track_data = tidal_service.get_track(song.tidal_id, current_user.id, session)
     if track_data:
         song.title = track_data["title"]
         song.artist = track_data["artist"]

@@ -5,6 +5,25 @@ from app.models.tidal_token import TidalToken
 import time
 from threading import Lock
 
+# Monkeypatch tidalapi.Session.parse_track to handle errors gracefully
+# This prevents the entire sync from failing if one track fails to parse
+try:
+    if not getattr(tidalapi.Session, "_patched_parse_track", False):
+        _original_parse_track = tidalapi.Session.parse_track
+
+        def _safe_parse_track(self, obj, album=None):
+            try:
+                return _original_parse_track(self, obj, album)
+            except Exception as e:
+                print(f"[HandleError] Error parsing track: {e}")
+                return None
+
+        tidalapi.Session.parse_track = _safe_parse_track
+        tidalapi.Session._patched_parse_track = True
+        print("Successfully monkeypatched tidalapi.Session.parse_track")
+except Exception as e:
+    print(f"Failed to monkeypatch tidalapi: {e}")
+
 
 class RateLimiter:
     def __init__(self, max_calls, period):
@@ -90,9 +109,15 @@ class TidalService:
             return restored_session
         return False
 
-    def search_tracks(self, query: str, limit: int = 10):
+    def search_tracks(
+        self, query: str, limit: int = 10, user_id: int = None, session: Session = None
+    ):
         if not self.session.check_login():
-            return []
+            if user_id and session:
+                if not self.load_session(user_id, session):
+                    return []
+            else:
+                return []
 
         rate_limiter.wait()
         # tidalapi search returns a dictionary with keys based on models requested
@@ -105,6 +130,8 @@ class TidalService:
 
             song_results = []
             for track in tracks:
+                if track is None:
+                    continue
                 # Handle cover URL safely
                 cover_url = None
                 if hasattr(track.album, "cover") and track.album.cover:
@@ -129,13 +156,19 @@ class TidalService:
             print(f"Error searching tracks: {e}")
             return []
 
-    def get_track(self, tidal_id: int):
+    def get_track(self, tidal_id: int, user_id: int = None, session: Session = None):
         if not self.session.check_login():
-            return None
+            if user_id and session:
+                if not self.load_session(user_id, session):
+                    return None
+            else:
+                return None
 
         rate_limiter.wait()
         try:
             track = self.session.track(tidal_id)
+            if track is None:
+                return None
             # Map to Song dict
             cover_url = None
             if hasattr(track.album, "cover") and track.album.cover:
@@ -152,9 +185,13 @@ class TidalService:
             print(f"Error fetching track: {e}")
             return None
 
-    def get_user_playlists(self):
+    def get_user_playlists(self, user_id: int = None, session: Session = None):
         if not self.session.check_login():
-            return []
+            if user_id and session:
+                if not self.load_session(user_id, session):
+                    return []
+            else:
+                return []
 
         rate_limiter.wait()
         try:
@@ -176,9 +213,15 @@ class TidalService:
             print(f"Error fetching playlists: {e}")
             return []
 
-    def get_playlist_tracks(self, playlist_id: str):
+    def get_playlist_tracks(
+        self, playlist_id: str, user_id: int = None, session: Session = None
+    ):
         if not self.session.check_login():
-            return []
+            if user_id and session:
+                if not self.load_session(user_id, session):
+                    return []
+            else:
+                return []
 
         rate_limiter.wait()
         try:
@@ -187,6 +230,8 @@ class TidalService:
 
             song_results = []
             for track in tracks:
+                if track is None:
+                    continue
                 # Handle cover URL safely
                 cover_url = None
                 if hasattr(track.album, "cover") and track.album.cover:
@@ -207,9 +252,13 @@ class TidalService:
             print(f"Error fetching playlist tracks: {e}")
             return []
 
-    def get_favorite_tracks(self):
+    def get_favorite_tracks(self, user_id: int = None, session: Session = None):
         if not self.session.check_login():
-            return []
+            if user_id and session:
+                if not self.load_session(user_id, session):
+                    return []
+            else:
+                return []
 
         rate_limiter.wait()
         try:
@@ -221,6 +270,8 @@ class TidalService:
 
             song_results = []
             for track in tracks:
+                if track is None:
+                    continue
                 # Handle cover URL safely
                 cover_url = None
                 if hasattr(track.album, "cover") and track.album.cover:
@@ -241,9 +292,13 @@ class TidalService:
             print(f"Error fetching favorite tracks: {e}")
             return []
 
-    def get_mixes(self):
+    def get_mixes(self, user_id: int = None, session: Session = None):
         if not self.session.check_login():
-            return []
+            if user_id and session:
+                if not self.load_session(user_id, session):
+                    return []
+            else:
+                return []
 
         rate_limiter.wait()
         try:

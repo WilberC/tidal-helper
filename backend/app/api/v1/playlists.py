@@ -11,6 +11,7 @@ from app.schemas import (
     PlaylistReadWithSongs,
 )
 from app.services.playlist_service import PlaylistService
+from app.services.sync_service import SyncService
 
 router = APIRouter()
 
@@ -154,3 +155,28 @@ def reorder_playlist_songs(
         )
 
     return service.reorder_songs(playlist_id, song_ids)
+
+
+@router.post("/{playlist_id}/sync", response_model=bool)
+def sync_playlist(
+    playlist_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    playlist_service = PlaylistService(session)
+    playlist = playlist_service.get_playlist(playlist_id)
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if playlist.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to update this playlist"
+        )
+
+    if not playlist.tidal_id:
+        raise HTTPException(
+            status_code=400, detail="This playlist is not linked to Tidal"
+        )
+
+    sync_service = SyncService(session)
+    sync_service.sync_playlist_songs(playlist.id, playlist.tidal_id, current_user.id)
+    return True

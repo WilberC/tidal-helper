@@ -12,7 +12,7 @@ class SyncService:
 
     def sync_playlists_data(self, user_id: int):
         # 1. Fetch playlists from Tidal
-        tidal_playlists = tidal_service.get_user_playlists()
+        tidal_playlists = tidal_service.get_user_playlists(user_id, self.session)
 
         synced_playlists = []
 
@@ -44,14 +44,18 @@ class SyncService:
             synced_playlists.append(local_pl)
 
             # Sync songs for this playlist
-            self.sync_playlist_songs(local_pl.id, t_pl["tidal_id"])
+            self.sync_playlist_songs(local_pl.id, t_pl["tidal_id"], user_id)
 
         self.session.commit()
         return synced_playlists
 
-    def sync_playlist_songs(self, local_playlist_id: int, tidal_playlist_id: str):
+    def sync_playlist_songs(
+        self, local_playlist_id: int, tidal_playlist_id: str, user_id: int
+    ):
         # 1. Fetch songs from Tidal
-        tidal_songs = tidal_service.get_playlist_tracks(tidal_playlist_id)
+        tidal_songs = tidal_service.get_playlist_tracks(
+            tidal_playlist_id, user_id, self.session
+        )
 
         # 2. Get all existing links for this playlist
         stmt = select(PlaylistSongLink).where(
@@ -101,7 +105,7 @@ class SyncService:
 
     def sync_tracks(self, user_id: int):
         # 1. Fetch favorite tracks from Tidal
-        tidal_tracks = tidal_service.get_favorite_tracks()
+        tidal_tracks = tidal_service.get_favorite_tracks(user_id, self.session)
 
         # 2. Create or Update "Tidal Tracks" playlist
         playlist_name = "Tidal Tracks"
@@ -135,7 +139,7 @@ class SyncService:
 
     def sync_mixes(self, user_id: int):
         # 1. Fetch mixes from Tidal
-        tidal_mixes = tidal_service.get_mixes()
+        tidal_mixes = tidal_service.get_mixes(user_id, self.session)
 
         # 2. Create or Update "Tidal Mixes" playlist
         # User said: "mixs should create a new playlist for them and songs sync should be listed there"
@@ -176,7 +180,9 @@ class SyncService:
         for mix in tidal_mixes:
             # Fetch tracks for each mix
             # Mixes are playlists in Tidal, so we can use get_playlist_tracks
-            tracks = tidal_service.get_playlist_tracks(mix["tidal_id"])
+            tracks = tidal_service.get_playlist_tracks(
+                mix["tidal_id"], user_id, self.session
+            )
             all_mix_tracks.extend(tracks)
 
         # Remove duplicates based on tidal_id
