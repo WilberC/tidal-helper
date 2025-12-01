@@ -64,8 +64,8 @@
             class="flex items-center gap-3 p-2 rounded-lg cursor-grab active:cursor-grabbing group transition-colors w-full select-none"
             :class="{
               'animate-pulse bg-white/5 pointer-events-none':
-                deletingItem?.playlistId === playlist.id &&
-                deletingItem?.songId === song.id,
+                song.id &&
+                deletingItems.has(getSelectionKey(playlist.id, song.id)),
               'bg-cyan-500/20 border border-cyan-500/30': isSelected(
                 playlist.id,
                 song.id
@@ -73,7 +73,8 @@
               'hover:bg-white/10': !isSelected(playlist.id, song.id),
               'bg-white/5':
                 !isSelected(playlist.id, song.id) &&
-                deletingItem?.playlistId !== playlist.id,
+                (!song.id ||
+                  !deletingItems.has(getSelectionKey(playlist.id, song.id))),
             }"
             draggable="true"
             @dragstart="onDragStart($event, song, playlist.id)"
@@ -81,8 +82,8 @@
           >
             <template
               v-if="
-                deletingItem?.playlistId === playlist.id &&
-                deletingItem?.songId === song.id
+                song.id &&
+                deletingItems.has(getSelectionKey(playlist.id, song.id))
               "
             >
               <div class="w-10 h-10 rounded bg-white/10"></div>
@@ -141,8 +142,8 @@
 
     <ConfirmationModal
       :is-open="deleteModalOpen"
-      title="Remove Song"
-      :message="`Are you sure you want to remove '${songToDelete?.title}' from this playlist?`"
+      title="Remove Songs"
+      :message="deleteMessage"
       @confirm="confirmDelete"
       @cancel="deleteModalOpen = false"
     />
@@ -162,10 +163,17 @@ const { playlists, loading, error } = storeToRefs(playlistStore);
 const toast = useToast();
 
 const deleteModalOpen = ref(false);
-const songToDelete = ref<any>(null);
+const songsToDelete = ref<any[]>([]);
 const playlistToDeleteFrom = ref<number | null>(null);
 const addingState = ref<{ playlistId: number; count: number } | null>(null);
-const deletingItem = ref<{ playlistId: number; songId: number } | null>(null);
+const deletingItems = ref<Set<string>>(new Set());
+
+const deleteMessage = computed(() => {
+  if (songsToDelete.value.length === 1) {
+    return `Are you sure you want to remove '${songsToDelete.value[0].title}' from this playlist?`;
+  }
+  return `Are you sure you want to remove ${songsToDelete.value.length} songs from this playlist?`;
+});
 
 onMounted(async () => {
   await playlistStore.fetchPlaylistsDetailed();
@@ -313,35 +321,56 @@ const onDrop = async (event: DragEvent, targetPlaylistId: number) => {
 };
 
 const handleRemoveSong = (playlistId: number, song: any) => {
-  songToDelete.value = song;
   playlistToDeleteFrom.value = playlistId;
+
+  if (isSelected(playlistId, song.id) && selectedSongs.value.size > 1) {
+    // Multi-delete
+    const playlist = playlists.value.find((p) => p.id === playlistId);
+    if (playlist && playlist.songs) {
+      songsToDelete.value = playlist.songs.filter(
+        (s) =>
+          s.id && selectedSongs.value.has(getSelectionKey(playlistId, s.id))
+      );
+    }
+  } else {
+    // Single delete
+    songsToDelete.value = [song];
+  }
   deleteModalOpen.value = true;
 };
 
 const confirmDelete = async () => {
-  if (playlistToDeleteFrom.value && songToDelete.value) {
-    const playlistId = playlistToDeleteFrom.value;
-    const songId = songToDelete.value.id;
+  if (!playlistToDeleteFrom.value || songsToDelete.value.length === 0) return;
 
-    // Close modal and clear selection immediately
-    deleteModalOpen.value = false;
-    songToDelete.value = null;
-    playlistToDeleteFrom.value = null;
+  const playlistId = playlistToDeleteFrom.value;
+  const songs = [...songsToDelete.value];
 
-    // Set deleting state
-    deletingItem.value = { playlistId, songId };
+  // Close modal and clear selection immediately
+  deleteModalOpen.value = false;
+  songsToDelete.value = [];
+  playlistToDeleteFrom.value = null;
 
-    try {
-      await playlistStore.removeSong(playlistId, songId);
-      toast.success("Song removed from playlist");
-    } catch (e) {
-      // Error handled in store
-    } finally {
-      deletingItem.value = null;
-    }
-  } else {
-    // Just close if no selection (shouldn't happen)
-    deleteModalOpen.value = false;
+  // Set deleting state
+  songs.forEach((s) => {
+    if (s.id) deletingItems.value.add(getSelectionKey(playlistId, s.id));
+  });
+
+  try {
+    await Promise.all(
+      songs.map((s) =>
+        s.id ? playlistStore.removeSong(playlistId, s.id) : Promise.resolve()
+      )
+    );
+    toast.success(
+      `Removed ${songs.length} song${songs.length > 1 ? "s" : ""} from playlist`
+    );
+  } catch (e) {
+    // Error handled in store
+  } finally {
+    songs.forEach((s) => {
+      if (s.id) deletingItems.value.delete(getSelectionKey(playlistId, s.id));
+    });
+    selectedSongs.value.clear();
   }
 };
 
