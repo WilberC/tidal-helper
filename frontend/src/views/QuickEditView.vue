@@ -294,12 +294,20 @@ const onDrop = async (event: DragEvent, targetPlaylistId: number) => {
 
   try {
     for (const song of songs) {
-      if (targetPlaylist.songs?.some((s) => s.tidal_id === song.tidal_id)) {
+      const exists = targetPlaylist.songs?.some(
+        (s) => s.tidal_id === song.tidal_id
+      );
+
+      if (exists) {
         skippedCount++;
-        continue;
+      } else {
+        await playlistStore.addSong(targetPlaylistId, song);
+        addedCount++;
       }
-      await playlistStore.addSong(targetPlaylistId, song);
-      addedCount++;
+
+      if (addingState.value) {
+        addingState.value.count--;
+      }
     }
 
     if (addedCount > 0) {
