@@ -62,28 +62,47 @@
             v-for="song in playlist.songs"
             :key="`${playlist.id}-${song.id}`"
             class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 cursor-grab active:cursor-grabbing group transition-colors w-full"
+            :class="{
+              'animate-pulse bg-white/5 pointer-events-none':
+                deletingItem?.playlistId === playlist.id &&
+                deletingItem?.songId === song.id,
+            }"
             draggable="true"
             @dragstart="onDragStart($event, song, playlist.id)"
           >
-            <img
-              :src="getCoverUrl(song.cover_url) || '/placeholder-cover.jpg'"
-              alt="Cover"
-              class="w-10 h-10 rounded object-cover bg-black/40"
-            />
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate text-white">
-                {{ song.title }}
-              </p>
-              <p class="text-xs text-gray-400 truncate">{{ song.artist }}</p>
-            </div>
-            <button
-              v-if="song.id"
-              @click.stop="handleRemoveSong(playlist.id, song)"
-              class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all"
-              title="Remove from playlist"
+            <template
+              v-if="
+                deletingItem?.playlistId === playlist.id &&
+                deletingItem?.songId === song.id
+              "
             >
-              <Trash2 class="w-4 h-4" />
-            </button>
+              <div class="w-10 h-10 rounded bg-white/10"></div>
+              <div class="flex-1 min-w-0 space-y-2">
+                <div class="h-4 bg-white/10 rounded w-3/4"></div>
+                <div class="h-3 bg-white/10 rounded w-1/2"></div>
+              </div>
+            </template>
+            <template v-else>
+              <img
+                :src="getCoverUrl(song.cover_url) || '/placeholder-cover.jpg'"
+                alt="Cover"
+                class="w-10 h-10 rounded object-cover bg-black/40"
+              />
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium truncate text-white">
+                  {{ song.title }}
+                </p>
+                <p class="text-xs text-gray-400 truncate">{{ song.artist }}</p>
+              </div>
+              <button
+                v-if="song.id"
+                @click.stop="handleRemoveSong(playlist.id, song)"
+                class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all"
+                title="Remove from playlist"
+              >
+                <Trash2 class="w-4 h-4" />
+              </button>
+            </template>
           </div>
           <!-- Skeleton Loader -->
           <div
@@ -134,6 +153,7 @@ const deleteModalOpen = ref(false);
 const songToDelete = ref<any>(null);
 const playlistToDeleteFrom = ref<number | null>(null);
 const addingToPlaylistId = ref<number | null>(null);
+const deletingItem = ref<{ playlistId: number; songId: number } | null>(null);
 
 onMounted(async () => {
   await playlistStore.fetchPlaylistsDetailed();
@@ -183,19 +203,29 @@ const handleRemoveSong = (playlistId: number, song: any) => {
 
 const confirmDelete = async () => {
   if (playlistToDeleteFrom.value && songToDelete.value) {
+    const playlistId = playlistToDeleteFrom.value;
+    const songId = songToDelete.value.id;
+
+    // Close modal and clear selection immediately
+    deleteModalOpen.value = false;
+    songToDelete.value = null;
+    playlistToDeleteFrom.value = null;
+
+    // Set deleting state
+    deletingItem.value = { playlistId, songId };
+
     try {
-      await playlistStore.removeSong(
-        playlistToDeleteFrom.value,
-        songToDelete.value.id
-      );
+      await playlistStore.removeSong(playlistId, songId);
       toast.success("Song removed from playlist");
     } catch (e) {
       // Error handled in store
+    } finally {
+      deletingItem.value = null;
     }
+  } else {
+    // Just close if no selection (shouldn't happen)
+    deleteModalOpen.value = false;
   }
-  deleteModalOpen.value = false;
-  songToDelete.value = null;
-  playlistToDeleteFrom.value = null;
 };
 
 const formatDate = (dateString?: string) => {
