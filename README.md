@@ -6,7 +6,7 @@ A tool to help manage Tidal music playlists and songs.
 
 ## Tech Stack
 
-- **Backend**: Python 3.11, FastAPI, SQLModel, Alembic
+- **Backend**: Python 3.14, FastAPI, SQLModel, Alembic
 - **Frontend**: TypeScript, Vue.js 3, Pinia, Tailwind CSS
 - **Database**: SQLite
 - **Infrastructure**: Docker, Docker Compose
@@ -139,3 +139,10 @@ poetry run python init_db.py
 ```
 
 > **Note:** This creates all tables based on your SQLModel definitions but doesn't track migration history. For production use, prefer Alembic migrations.
+
+
+## Music Backup
+
+This project utilizes [tiddl](https://github.com/oskvr37/tiddl) for music downloads and backups.
+
+> **Note:** A local version of `tiddl` is currently included in this repository to incorporate specific fixes that are pending approval in the upstream repository. Once these changes are merged, this local dependency will be removed in favor of the official library.

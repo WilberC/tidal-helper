@@ -33,3 +33,7 @@ pnpm-debug.log*
 
 # Database
 *.db
+
+# Tiddl
+# This is because tiddl should be installed not cloned
+tiddl/
