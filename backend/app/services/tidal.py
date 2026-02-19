@@ -81,10 +81,8 @@ class TidalService:
                 select(TidalToken).where(TidalToken.user_id == user_id)
             ).first()
 
-            if token_record and (token_record.token_type == self.session.token_type):
-                return
-
             if token_record:
+                # Always update all fields — tidalapi may have auto-refreshed the token
                 token_record.token_type = self.session.token_type
                 token_record.access_token = self.session.access_token
                 token_record.refresh_token = self.session.refresh_token

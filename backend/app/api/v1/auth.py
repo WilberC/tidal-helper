@@ -54,6 +54,19 @@ def login_access_token(
     }
 
 
+@router.post("/refresh")
+def refresh_access_token(
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Refresh the access token for the currently authenticated user.
+    """
+    return {
+        "access_token": security.create_access_token(current_user.id),
+        "token_type": "bearer",
+    }
+
+
 @router.get("/tidal/login-url")
 def get_tidal_login_url(
     session: Session = Depends(get_session),

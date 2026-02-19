@@ -58,6 +58,17 @@ export const useAuthStore = defineStore("auth", () => {
     router.push("/login");
   }
 
+  async function refresh() {
+    if (!token.value) throw new Error("No token");
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_URL}/api/v1/auth/refresh`,
+      {},
+      { headers: { Authorization: `Bearer ${token.value}` } }
+    );
+    token.value = response.data.access_token;
+    localStorage.setItem("token", token.value as string);
+  }
+
   const isTidalConnected = ref(false);
 
   async function checkTidalConnectionStatus() {
@@ -110,6 +121,7 @@ export const useAuthStore = defineStore("auth", () => {
     login,
     signup,
     logout,
+    refresh,
     checkTidalConnectionStatus,
     getTidalLoginUrl,
     handleTidalCallback,
