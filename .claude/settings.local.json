@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m alembic upgrade:*)",
+      "Bash(poetry run alembic upgrade:*)",
+      "Bash(poetry env info:*)",
+      "Bash(/home/wilber/Projects/Personal/tidal-helper/tiddl/.venv/bin/alembic upgrade head:*)",
+      "Bash(/home/wilber/.cache/pypoetry/virtualenvs/tidal-helper-backend-Wzi4fUVJ-py3.14/bin/alembic upgrade:*)",
+      "Bash(/home/wilber/.cache/pypoetry/virtualenvs/tidal-helper-backend-Wzi4fUVJ-py3.14/bin/alembic stamp:*)",
+      "Bash(/home/wilber/.cache/pypoetry/virtualenvs/tidal-helper-backend-Wzi4fUVJ-py3.14/bin/python:*)"
+    ]
+  }
+}

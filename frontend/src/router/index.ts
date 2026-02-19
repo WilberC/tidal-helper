@@ -40,6 +40,12 @@ const router = createRouter({
       component: () => import("../views/QuickEditView.vue"),
       meta: { requiresAuth: true },
     },
+    {
+      path: "/downloader",
+      name: "downloader",
+      component: () => import("../views/DownloaderView.vue"),
+      meta: { requiresAuth: true },
+    },
   ],
 });
 

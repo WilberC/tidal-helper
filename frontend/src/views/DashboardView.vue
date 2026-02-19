@@ -213,9 +213,15 @@ const openPlaylist = (id: number) => {
         </button>
         <button
           @click="router.push('/quick-edit')"
-          class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition mr-2"
+          class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition"
         >
           Quick Edit
+        </button>
+        <button
+          @click="router.push('/downloader')"
+          class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition"
+        >
+          Downloader Manager
         </button>
         <button
           @click="openCreate"

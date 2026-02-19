@@ -3,6 +3,33 @@ from datetime import datetime
 from sqlmodel import SQLModel
 
 
+# ── Downloader ──────────────────────────────────────────────────────────────
+
+class DownloaderItemRead(SQLModel):
+    id: int
+    user_id: int
+    tidal_id: str
+    name: str
+    item_type: str
+    status: str
+    position: int
+    created_at: datetime
+
+
+class DownloaderItemUpdate(SQLModel):
+    status: Optional[str] = None
+    position: Optional[int] = None
+
+
+class DownloaderBulkPositionItem(SQLModel):
+    id: int
+    status: str
+    position: int
+
+
+# ── Playlists ────────────────────────────────────────────────────────────────
+
+
 class PlaylistBase(SQLModel):
     name: str
     description: Optional[str] = None

@@ -1,4 +1,4 @@
-from typing import Optional, List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship
 
@@ -8,14 +8,14 @@ from .playlist_song_link import PlaylistSongLink
 
 
 class Playlist(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
-    tidal_id: Optional[str] = Field(default=None, index=True)
+    tidal_id: str | None = Field(default=None, index=True)
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    last_synced_at: Optional[datetime] = Field(default=None)
+    last_synced_at: datetime | None = Field(default=None)
 
     songs: List["Song"] = Relationship(
         back_populates="playlists", link_model=PlaylistSongLink
