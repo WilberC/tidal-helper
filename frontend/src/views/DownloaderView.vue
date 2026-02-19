@@ -56,6 +56,56 @@ function clearSelection() {
   anchorStatus.value = null;
 }
 
+function isAllSelectedInColumn(status: string) {
+  const colItems = getColumnItems(status);
+  if (colItems.length === 0) return false;
+  return colItems.every((i) => isSelected(i.id));
+}
+
+function toggleSelectAllInColumn(status: string) {
+  const colItems = getColumnItems(status);
+  if (isAllSelectedInColumn(status)) {
+    const colIds = new Set(colItems.map((i) => i.id));
+    selectedIds.value = selectedIds.value.filter((id) => !colIds.has(id));
+  } else {
+    const next = new Set([...selectedIds.value, ...colItems.map((i) => i.id)]);
+    selectedIds.value = [...next];
+  }
+}
+
+function moveSelectedToColumn(targetStatus: string) {
+  if (selectedIds.value.length === 0) return;
+  const idsToMove = new Set(selectedIds.value);
+  const itemsToMove = allItems.value.filter((i) => idsToMove.has(i.id));
+  const affectedSrcStatuses = new Set(itemsToMove.map((i) => i.status).filter((s) => s !== targetStatus));
+
+  // Update status
+  itemsToMove.forEach((item) => { item.status = targetStatus; });
+
+  // Reassign target column positions (append moved items at the end)
+  const targetColItems = allItems.value
+    .filter((i) => i.status === targetStatus)
+    .sort((a, b) => a.position - b.position);
+  targetColItems.forEach((item, idx) => { item.position = idx; });
+
+  // Reassign affected source columns
+  affectedSrcStatuses.forEach((srcStatus) => {
+    const srcColItems = allItems.value
+      .filter((i) => i.status === srcStatus)
+      .sort((a, b) => a.position - b.position);
+    srcColItems.forEach((item, idx) => { item.position = idx; });
+  });
+
+  // Trigger reactivity
+  allItems.value = [...allItems.value];
+
+  const colLabel = columns.find((c) => c.status === targetStatus)?.label ?? targetStatus;
+  const count = idsToMove.size;
+  clearSelection();
+  toast.success(`Moved ${count} item${count > 1 ? "s" : ""} to ${colLabel}`);
+  saveBulkPositions();
+}
+
 function handleItemClick(event: MouseEvent, item: DownloaderItem, colStatus: string) {
   if (event.shiftKey && anchorId.value !== null && anchorStatus.value === colStatus) {
     // Range select within the same column — never copies
@@ -312,21 +362,75 @@ function onDrop(event: DragEvent, targetStatus: string, targetItemId: number | n
   if (!draggedItem.value) return;
 
   const src = draggedItem.value;
+
+  // If dragging a selected item, move ALL selected items together
+  if (isSelected(src.id) && selectedIds.value.length > 1) {
+    const idsToMove = new Set(selectedIds.value);
+    // Preserve relative order of moved items
+    const itemsToMove = allItems.value
+      .filter((i) => idsToMove.has(i.id))
+      .sort((a, b) => a.position - b.position);
+    const affectedSrcStatuses = new Set(
+      itemsToMove.map((i) => i.status).filter((s) => s !== targetStatus)
+    );
+
+    // Work with remaining items (not being moved)
+    const remaining = allItems.value.filter((i) => !idsToMove.has(i.id));
+
+    // Calculate insert position within the remaining target-column items
+    const targetColItems = remaining
+      .filter((i) => i.status === targetStatus)
+      .sort((a, b) => a.position - b.position);
+
+    let insertAt = targetColItems.length; // default: end
+    // Only use targetItemId as anchor if it's not one of the items being moved
+    if (targetItemId !== null && !idsToMove.has(targetItemId)) {
+      const targetIdx = targetColItems.findIndex((i) => i.id === targetItemId);
+      if (targetIdx !== -1) {
+        insertAt = dragOverAfter.value ? targetIdx + 1 : targetIdx;
+      }
+    }
+
+    // Update status and splice in
+    itemsToMove.forEach((item) => { item.status = targetStatus; });
+    targetColItems.splice(insertAt, 0, ...itemsToMove);
+    targetColItems.forEach((item, idx) => { item.position = idx; });
+
+    // Reassign affected source columns
+    affectedSrcStatuses.forEach((s) => {
+      remaining
+        .filter((i) => i.status === s)
+        .sort((a, b) => a.position - b.position)
+        .forEach((item, idx) => { item.position = idx; });
+    });
+
+    allItems.value = [
+      ...remaining.filter((i) => i.status !== targetStatus),
+      ...targetColItems,
+    ];
+
+    clearSelection();
+    draggedItem.value = null;
+    draggedFromStatus.value = null;
+    dragOverItemId.value = null;
+    dragOverStatus.value = null;
+    saveBulkPositions();
+    return;
+  }
+
+  // Single-item drag (original behaviour)
   const srcStatus = draggedFromStatus.value!;
 
-  // Remove from source column items in allItems
   const srcIndex = allItems.value.findIndex((i) => i.id === src.id);
   if (srcIndex !== -1) allItems.value.splice(srcIndex, 1);
 
-  // Update status
   src.status = targetStatus;
 
-  // Calculate target position
   const targetColItems = allItems.value
     .filter((i) => i.status === targetStatus)
     .sort((a, b) => a.position - b.position);
 
-  let insertAt = targetColItems.length; // default: end
+  let insertAt = targetColItems.length;
   if (targetItemId !== null) {
     const targetIdx = targetColItems.findIndex((i) => i.id === targetItemId);
     if (targetIdx !== -1) {
@@ -334,35 +438,23 @@ function onDrop(event: DragEvent, targetStatus: string, targetItemId: number | n
     }
   }
 
-  // Insert at new position
   targetColItems.splice(insertAt, 0, src);
+  targetColItems.forEach((item, idx) => { item.position = idx; });
 
-  // Reassign positions for target column
-  targetColItems.forEach((item, idx) => {
-    item.position = idx;
-  });
-
-  // Put everything back in allItems: keep non-target-column items, replace target column items
   const otherItems = allItems.value.filter((i) => i.status !== targetStatus);
   allItems.value = [...otherItems, ...targetColItems];
 
-  // If source was different column, reassign positions there too
   if (srcStatus !== targetStatus) {
-    const srcColItems = allItems.value
+    allItems.value
       .filter((i) => i.status === srcStatus)
-      .sort((a, b) => a.position - b.position);
-    srcColItems.forEach((item, idx) => {
-      item.position = idx;
-    });
+      .sort((a, b) => a.position - b.position)
+      .forEach((item, idx) => { item.position = idx; });
   }
 
-  // Reset drag state
   draggedItem.value = null;
   draggedFromStatus.value = null;
   dragOverItemId.value = null;
   dragOverStatus.value = null;
-
-  // Persist
   saveBulkPositions();
 }
 
@@ -490,6 +582,39 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Selection action bar -->
+    <div
+      v-if="selectedIds.length > 0"
+      class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 bg-cyan-900/20 border border-cyan-500/30 rounded-xl px-4 py-2.5"
+    >
+      <span class="text-sm text-cyan-300 font-semibold shrink-0">
+        {{ selectedIds.length }} item{{ selectedIds.length > 1 ? "s" : "" }} selected
+      </span>
+      <div class="h-4 w-px bg-gray-600 hidden sm:block"></div>
+      <span class="text-xs text-gray-400 shrink-0">Move to:</span>
+      <div class="flex flex-wrap gap-1.5">
+        <button
+          v-for="col in columns"
+          :key="col.status"
+          @click="moveSelectedToColumn(col.status)"
+          :class="[
+            'text-xs px-3 py-1 rounded-lg border transition font-medium',
+            col.headerColor,
+            col.color.replace('border-', 'border-').replace('/40', '/60'),
+            'hover:bg-white/10',
+          ]"
+        >
+          {{ col.label }}
+        </button>
+      </div>
+      <button
+        @click="clearSelection()"
+        class="ml-auto text-xs text-gray-500 hover:text-white transition shrink-0"
+      >
+        Clear
+      </button>
+    </div>
+
     <!-- Loading -->
     <div v-if="isLoading" class="flex justify-center py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500"></div>
@@ -506,7 +631,7 @@ onUnmounted(() => {
       >
         <!-- Column header -->
         <div class="flex items-center justify-between mb-3 px-1">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <h2 :class="['text-lg font-bold', col.headerColor]">{{ col.label }}</h2>
             <span class="text-xs bg-gray-700 text-gray-300 rounded-full px-2 py-0.5">
               {{ getColumnItems(col.status).length }}
@@ -521,6 +646,21 @@ onUnmounted(() => {
               </svg>
               {{ selectedInColumn(col.status).length }} selected
             </span>
+            <!-- Select all toggle -->
+            <button
+              @click="toggleSelectAllInColumn(col.status)"
+              :disabled="getColumnItems(col.status).length === 0"
+              :title="isAllSelectedInColumn(col.status) ? 'Deselect all in column' : 'Select all in column'"
+              :class="[
+                'text-xs px-2 py-0.5 rounded-md border transition',
+                isAllSelectedInColumn(col.status)
+                  ? 'border-cyan-500 text-cyan-400 bg-cyan-500/10'
+                  : 'border-gray-600 text-gray-500 hover:border-gray-400 hover:text-gray-300',
+                getColumnItems(col.status).length === 0 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer',
+              ]"
+            >
+              {{ isAllSelectedInColumn(col.status) ? "Deselect all" : "Select all" }}
+            </button>
           </div>
 
           <!-- Copy button -->
@@ -580,7 +720,7 @@ onUnmounted(() => {
             @click.stop="handleItemClick($event, item, col.status)"
             :class="[
               'group relative border rounded-lg p-3 cursor-pointer select-none transition-all',
-              draggedItem?.id === item.id
+              (draggedItem?.id === item.id || (draggedItem && isSelected(draggedItem.id) && isSelected(item.id)))
                 ? 'opacity-40 border-gray-600 bg-gray-800'
                 : isSelected(item.id)
                   ? 'bg-cyan-900/30 border-cyan-500/70 shadow-[0_0_0_1px_rgba(6,182,212,0.25)]'
